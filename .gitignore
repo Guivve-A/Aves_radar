@@ -1,0 +1,40 @@
+﻿# Python virtual environment
+venv/
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Runtime outputs
+output/*
+!output/.gitkeep
+profiles/*.npy
+profiles/*.json
+!profiles/.gitkeep
+
+# Logs
+*.log
+
+# Datos privados del proyecto (copia local de Google Drive) y artefactos de trabajo
+data_cache/
+
+# Modelos de terceros (BirdNET, licencia CC BY-NC-SA 4.0)
+*.tflite
+
+# Auxiliares de compilacion LaTeX
+docs/**/*.aux
+docs/**/*.log
+docs/**/*.out
+docs/**/*.toc
+docs/**/*.bbl
+docs/**/*.blg
+docs/**/*.fls
+docs/**/*.fdb_latexmk
+docs/**/*.synctex.gz
+docs/**/*.lof
+docs/**/*.lot
