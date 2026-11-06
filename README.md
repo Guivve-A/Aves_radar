@@ -86,6 +86,7 @@ python main.py
 - `finetuning/`: pipeline reproducible (datos, embeddings BirdNET, validacion cruzada por sesion, exportacion).
 - Pipeline completo en Google Colab sobre la carpeta de Drive (sin descargarla): `finetuning/colab_pipeline.ipynb` ([abrir en Colab](https://colab.research.google.com/github/Guivve-A/Aves_radar/blob/main/finetuning/colab_pipeline.ipynb)). Genera tambien la hoja de anotacion aleatoria para la evaluacion sin sesgo.
 - Informe con teoria y resultados: `docs/informe_finetuning/informe_finetuning.pdf`.
+- Pestaña **Validación**: carga `TablaFinal.xlsx` y compara cada grabación analizada con las validaciones del equipo (porcentaje de coincidencia, detecciones confirmadas, línea de tiempo por especie). El audio debe estar dentro de la carpeta de su grabadora (`AM001/...`). Para comparar en igualdad de condiciones usa solape 0 s.
 - Pruebas: `python -m unittest discover -s tests`.
 
 ### Build de ejecutable
@@ -199,6 +200,7 @@ python main.py
 - `finetuning/`: reproducible pipeline (data, BirdNET embeddings, session-grouped cross-validation, export).
 - Full pipeline on Google Colab, reading the Drive folder in place: `finetuning/colab_pipeline.ipynb` ([open in Colab](https://colab.research.google.com/github/Guivve-A/Aves_radar/blob/main/finetuning/colab_pipeline.ipynb)). It also builds the random annotation sheet for the unbiased evaluation.
 - Report with theory and results (Spanish): `docs/informe_finetuning/informe_finetuning.pdf`.
+- **Validación** tab: load `TablaFinal.xlsx` to compare each analysed recording with the team's validations (agreement percentage, confirmed detections, per-species timeline). Keep audio inside its recorder folder (`AM001/...`); use 0 s overlap for a like-for-like comparison.
 - Tests: `python -m unittest discover -s tests`.
 
 ### Build executable

@@ -129,6 +129,15 @@ class ProfileManager:
     def save_profile(self, name: str, source_audio: str, vectors: np.ndarray) -> ReferenceProfile:
         profiles = self._load_metadata()
         safe_name = self._safe_name(name)
+        taken = {
+            str(item.get("safe_name", ""))
+            for item in profiles
+            if str(item.get("name", "")).strip().lower() != name.strip().lower()
+        }
+        base, suffix = safe_name, 2
+        while safe_name in taken:
+            safe_name = f"{base}_{suffix}"
+            suffix += 1
         vector_file = f"{safe_name}.npy"
         vector_path = self.storage_dir / vector_file
 
@@ -149,7 +158,7 @@ class ProfileManager:
 
         updated = False
         for idx, item in enumerate(profiles):
-            if str(item.get("name", "")).strip().lower() == name.strip().lower() or str(item.get("safe_name", "")) == safe_name:
+            if str(item.get("name", "")).strip().lower() == name.strip().lower():
                 profiles[idx] = asdict(entry)
                 updated = True
                 break
@@ -244,6 +253,8 @@ class AudioAnalyzer:
         batch_size: int = 1,
         threads: int = 4,
         use_noise_reduction: bool = False,
+        sensitivity: float = 1.0,
+        global_min_conf: float = 0.25,
     ) -> None:
         self.profile_manager = profile_manager
         self.similarity_threshold = float(similarity_threshold)
@@ -253,6 +264,10 @@ class AudioAnalyzer:
         self.batch_size = int(batch_size)
         self.threads = int(threads)
         self.use_noise_reduction = bool(use_noise_reduction)
+        # Solo afectan al Modo Descubrimiento (BirdNET global): el clasificador local usa
+        # sus propios umbrales calibrados y los perfiles, la similitud coseno.
+        self.sensitivity = float(sensitivity)
+        self.global_min_conf = float(global_min_conf)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.cosine = torch.nn.CosineSimilarity(dim=1)
         self.local_classifier = None
@@ -284,10 +299,7 @@ class AudioAnalyzer:
         if p.is_file():
             return [p] if p.suffix.lower() in AUDIO_EXTENSIONS else []
 
-        files: list[Path] = []
-        for ext in AUDIO_EXTENSIONS:
-            files.extend(p.rglob(f"*{ext}"))
-        return sorted(files)
+        return sorted(f for f in p.rglob("*") if f.is_file() and f.suffix.lower() in AUDIO_EXTENSIONS)
 
     def _configure_birdnet(self, audio_input: str) -> None:
         cfg.MODEL_PATH = cfg.BIRDNET_MODEL_PATH
@@ -612,48 +624,30 @@ class AudioAnalyzer:
         file_path: Path,
         output_dir: Path,
         *,
+        latitude: float | None = None,
+        longitude: float | None = None,
         log_callback: Callable[[str, str], None] | None = None,
     ) -> None:
-        run_error: BaseException | None = None
-        executed = False
-
-        if callable(birdnet_run):
-            try:
-                birdnet_run()
-                executed = True
-            except TypeError:
-                executed = False
-            except BaseException as ex:
-                run_error = ex
-
-        if not executed and not callable(birdnet_run):
-            for fn_name in ("analyze", "run"):
-                fn = getattr(birdnet_run, fn_name, None)
-                if not callable(fn):
-                    continue
-                for args, kwargs in (
-                    ((), {}),
-                    ((str(file_path),), {}),
-                    ((str(file_path), str(output_dir)), {}),
-                    ((), {"input_path": str(file_path), "output_path": str(output_dir)}),
-                ):
-                    try:
-                        fn(*args, **kwargs)
-                        executed = True
-                        break
-                    except TypeError:
-                        continue
-                    except BaseException as ex:
-                        run_error = ex
-                        break
-                if executed or run_error is not None:
-                    break
-
-        if executed:
+        """Ejecuta BirdNET sobre un archivo y deja el CSV de resultados en ``output_dir``."""
+        kwargs = {
+            "rtype": "csv",
+            "overlap": float(self.overlap_seconds),
+            "threads": max(1, int(self.threads)),
+            "sensitivity": float(self.sensitivity),
+            "min_conf": float(self.global_min_conf),
+        }
+        if latitude is not None and longitude is not None:
+            kwargs["lat"] = float(latitude)
+            kwargs["lon"] = float(longitude)
+        try:
+            birdnet_run(str(file_path), str(output_dir), **kwargs)
             return
-
-        if run_error and log_callback:
-            log_callback("Warning", f"API BirdNET no disponible para este flujo ({run_error}). Usando CLI...")
+        except TypeError as ex:
+            # Otra version de birdnet_analyzer con una firma distinta.
+            if getattr(sys, "frozen", False):
+                raise RuntimeError(f"La version instalada de BirdNET no admite estos parametros: {ex}") from ex
+            if log_callback:
+                log_callback("Warning", f"API de BirdNET incompatible ({ex}). Usando la linea de comandos...")
 
         cmd = [
             sys.executable,
@@ -666,12 +660,19 @@ class AudioAnalyzer:
             "csv",
             "--overlap",
             f"{self.overlap_seconds:.2f}",
+            "--sensitivity",
+            f"{self.sensitivity:.2f}",
+            "--min_conf",
+            f"{self.global_min_conf:.2f}",
             "-t",
             str(max(1, int(self.threads))),
         ]
-        if getattr(cfg, "LATITUDE", None) is not None and getattr(cfg, "LONGITUDE", None) is not None:
-            cmd.extend(["--lat", f"{float(cfg.LATITUDE):.6f}", "--lon", f"{float(cfg.LONGITUDE):.6f}"])
-        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        if latitude is not None and longitude is not None:
+            cmd.extend(["--lat", f"{float(latitude):.6f}", "--lon", f"{float(longitude):.6f}"])
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or "").strip()[-600:]
+            raise RuntimeError(f"BirdNET termino con error ({result.returncode}): {detail}")
 
     def _run_global_discovery_for_file(
         self,
@@ -695,7 +696,9 @@ class AudioAnalyzer:
                     cfg.LATITUDE = None
                     cfg.LONGITUDE = None
 
-                self._invoke_birdnet_module(prepared_path, out_dir, log_callback=log_callback)
+                self._invoke_birdnet_module(
+                    prepared_path, out_dir, latitude=latitude, longitude=longitude, log_callback=log_callback
+                )
 
                 csv_paths = sorted(out_dir.rglob("*.BirdNET.results.csv"))
                 if not csv_paths:
@@ -1084,6 +1087,7 @@ class AudioWorker(QObject):
         latitude: float | None = None,
         longitude: float | None = None,
         use_local_classifier: bool = False,
+        sensitivity: float = 1.0,
     ) -> None:
         super().__init__()
         self.analyzer = analyzer
@@ -1102,6 +1106,7 @@ class AudioWorker(QObject):
         self.latitude = latitude
         self.longitude = longitude
         self.use_local_classifier = bool(use_local_classifier)
+        self.sensitivity = float(sensitivity)
         self._stop_requested = False
 
     def request_stop(self) -> None:
@@ -1117,6 +1122,7 @@ class AudioWorker(QObject):
                 self.analyzer.overlap_seconds = float(self.overlap_seconds)
             if self.threads is not None:
                 self.analyzer.threads = int(self.threads)
+            self.analyzer.sensitivity = self.sensitivity
 
             detections, summary = self.analyzer.analyze(
                 self.input_path,

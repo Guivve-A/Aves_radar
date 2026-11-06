@@ -126,6 +126,8 @@ def build() -> None:
         "sklearn.utils._cython_blas",
         "sklearn.neighbors.typedefs",
         "pandas",
+        "openpyxl",  # pandas lo importa de forma diferida (lectura de TablaFinal.xlsx)
+        "validation",
         "torch",
         "torchaudio",
     ]
