@@ -354,23 +354,31 @@ def tablafinal_calibration(det: pd.DataFrame, species: list[str], targets=(0.9, 
 def nonlocal_detections(ds: D.Dataset, local_species: set[str], thresholds=(0.25, 0.5, 0.75)) -> dict:
     """Cuantas detecciones de BirdNET global corresponden a especies ajenas a la lista local."""
     data = np.load(config.WORK_DIR / "embeddings_all.npz")
-    labels = [str(x) for x in data["labels"]]
+    labels = np.array([str(x) for x in data["labels"]])
     keep_rows = set(zip(ds.meta["file_key"], ds.meta["start"]))
-    mask = np.array([(fk, round(float(st), 2)) in keep_rows for fk, st in zip(data["file_key"].astype(str), data["start"])])
-    sig = flat_sigmoid(data["logits"][mask].astype(np.float32))
+    rows = np.flatnonzero([(fk, round(float(st), 2)) in keep_rows for fk, st in zip(data["file_key"].astype(str), data["start"])])
     local_set = {D.BIRDNET_SYNONYMS.get(s, s) for s in local_species}
     is_local = np.array([lab.split("_")[0] in local_set for lab in labels])
-    out = {"windows": int(mask.sum()), "local_species_in_list": int(is_local.sum())}
+    out = {"windows": int(len(rows)), "local_species_in_list": int(is_local.sum())}
+    acc = {t: {"total": 0, "nonlocal": 0, "windows": 0} for t in thresholds}
+    counts = np.zeros(int((~is_local).sum()), dtype=np.int64)
+    logits16 = data["logits"]  # float16; se procesa por bloques para no agotar la memoria
+    for a in range(0, len(rows), 20_000):
+        sig = flat_sigmoid(logits16[rows[a : a + 20_000]].astype(np.float32))
+        for t in thresholds:
+            det = sig >= t
+            non = det[:, ~is_local]
+            acc[t]["total"] += int(det.sum())
+            acc[t]["nonlocal"] += int(non.sum())
+            acc[t]["windows"] += int(non.any(axis=1).sum())
+        counts += (sig[:, ~is_local] >= 0.5).sum(axis=0)
+    del logits16
     for t in thresholds:
-        det = sig >= t
-        out[f"det_total@{t:g}"] = int(det.sum())
-        out[f"det_nonlocal@{t:g}"] = int(det[:, ~is_local].sum())
-        out[f"windows_with_nonlocal@{t:g}"] = int(det[:, ~is_local].any(axis=1).sum())
-    top = pd.Series(np.array(labels)[~is_local][np.argsort(-(sig[:, ~is_local] >= 0.5).sum(axis=0))[:10]])
-    counts = (sig[:, ~is_local] >= 0.5).sum(axis=0)
+        out[f"det_total@{t:g}"] = acc[t]["total"]
+        out[f"det_nonlocal@{t:g}"] = acc[t]["nonlocal"]
+        out[f"windows_with_nonlocal@{t:g}"] = acc[t]["windows"]
     order = np.argsort(-counts)[:10]
-    out["top_nonlocal@0.5"] = [{"label": str(np.array(labels)[~is_local][i]), "detections": int(counts[i])} for i in order if counts[i] > 0]
-    del top
+    out["top_nonlocal@0.5"] = [{"label": str(labels[~is_local][i]), "detections": int(counts[i])} for i in order if counts[i] > 0]
     return out
 
 

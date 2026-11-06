@@ -55,7 +55,7 @@ def birdnet_label_index(birdnet_labels: list[str]) -> dict[str, int]:
     return {lab.split("_")[0]: i for i, lab in enumerate(birdnet_labels)}
 
 
-def session_consistency(det: pd.DataFrame, data, *, tolerance: float = 0.02) -> pd.DataFrame:
+def session_consistency(det: pd.DataFrame, data, *, tolerance: float = 0.02, logits: np.ndarray | None = None) -> pd.DataFrame:
     """Control de calidad: concordancia entre la confianza registrada en
     TablaFinal y la recalculada por este pipeline, por sesion.
 
@@ -66,7 +66,7 @@ def session_consistency(det: pd.DataFrame, data, *, tolerance: float = 0.02) -> 
     """
     bn_index = birdnet_label_index([str(x) for x in data["labels"]])
     keys = {(fk, st): i for i, (fk, st) in enumerate(zip(data["file_key"].astype(str), np.round(data["start"].astype(float), 2)))}
-    logits = data["logits"]
+    logits = data["logits"] if logits is None else logits
     rows = []
     for r in det.itertuples(index=False):
         i = keys.get((r.file_key, round(float(r.start), 2)))
@@ -79,6 +79,14 @@ def session_consistency(det: pd.DataFrame, data, *, tolerance: float = 0.02) -> 
     return qc.groupby("session")["match"].agg(rows="size", agreement="mean").reset_index()
 
 
+def session_from_file_key(file_key: pd.Series) -> pd.DataFrame:
+    """device, date, period y session a partir de 'AM001/Sunrise/20250724_060000.WAV'."""
+    parts = file_key.str.split("/", expand=True)
+    device, period, fname = parts[0], parts[1], parts[2]
+    date = fname.str.slice(0, 8)
+    return pd.DataFrame({"device": device, "date": date, "period": period, "session": device + "_" + date + "_" + period})
+
+
 def build_dataset(
     *,
     min_positives_subset: int = 10,
@@ -89,33 +97,38 @@ def build_dataset(
 ) -> Dataset:
     data = np.load(ALL_NPZ, allow_pickle=False)
     det = labels.load_detections() if det is None else det
+    # Con el conjunto completo los logits ocupan varios GB (ventanas x 6 522 clases):
+    # se cargan una sola vez en float16 y solo se convierten las columnas necesarias.
+    logits16 = data["logits"]
 
-    qc = session_consistency(det, data)
+    qc = session_consistency(det, data, logits=logits16)
     bad_sessions = set(qc.loc[qc["agreement"] < min_session_agreement, "session"])
     config.RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     qc.assign(excluded=qc["session"].isin(bad_sessions)).to_csv(config.RESULTS_DIR / "qc_sessions.csv", index=False)
 
     file_key_all = data["file_key"].astype(str)
-    session_of_file = det.drop_duplicates("file_key").set_index("file_key")["session"]
-    keep = ~pd.Series(file_key_all).map(session_of_file).isin(bad_sessions).to_numpy()
+    # La sesion se deduce del propio file_key (grabadora/periodo/AAAAMMDD_HHMMSS.WAV):
+    # en el conjunto completo la mayoria de grabaciones no tiene ninguna deteccion.
+    meta_all = session_from_file_key(pd.Series(file_key_all))
+    keep = ~meta_all["session"].isin(bad_sessions).to_numpy()
     if bad_sessions:
         det = det[~det["session"].isin(bad_sessions)]
 
-    file_key = file_key_all[keep]
-    start = np.round(data["start"].astype(float), 2)[keep]
-    emb = data["emb"].astype(np.float32)[keep]
-    logits = data["logits"].astype(np.float32)[keep]
+    rows_kept = np.flatnonzero(keep)
+    file_key = file_key_all[rows_kept]
+    start = np.round(data["start"].astype(float), 2)[rows_kept]
+    emb = data["emb"]
+    emb = (emb if len(rows_kept) == len(emb) else emb[rows_kept]).astype(np.float32, copy=False)
     bn_labels = [str(x) for x in data["labels"]]
     bn_index = birdnet_label_index(bn_labels)
     windows = labels.build_windows(det)
     win_key = {(fk, round(float(st), 2)): i for i, (fk, st) in enumerate(zip(windows["file_key"], windows["start"]))}
 
-    sess_map = det.drop_duplicates("file_key").set_index("file_key")[["device", "date", "period", "session"]]
-    meta = pd.DataFrame({"file_key": file_key, "start": start})
-    meta = meta.join(sess_map, on="file_key")
-    if meta["session"].isna().any():
-        missing = meta.loc[meta["session"].isna(), "file_key"].unique()[:5]
-        raise ValueError(f"Grabaciones sin metadatos en TablaFinal: {missing}")
+    meta = pd.concat([pd.DataFrame({"file_key": file_key, "start": start}), meta_all.iloc[rows_kept].reset_index(drop=True)], axis=1)
+    unknown = ~meta["session"].isin(set(det["session"]))
+    if unknown.any():
+        # Sesiones que el equipo no reviso: no tienen etiquetas y contarian como negativos.
+        raise ValueError(f"Grabaciones fuera de las sesiones de TablaFinal: {meta.loc[unknown, 'file_key'].unique()[:5]}")
 
     pos_lists, neg_lists = [], []
     for fk, st in zip(file_key, start):
@@ -160,7 +173,11 @@ def build_dataset(
             raise KeyError(f"Especie sin etiqueta BirdNET: {s}")
         cols.append(bn_index[key])
         used_labels.append(bn_labels[bn_index[key]])
-    birdnet_logit = logits[:, cols]
+    birdnet_logit = logits16[:, cols][rows_kept].astype(np.float32)
+    top1 = np.empty(len(rows_kept), dtype=np.int32)
+    for a in range(0, len(rows_kept), 20_000):
+        top1[a : a + 20_000] = np.argmax(logits16[rows_kept[a : a + 20_000]], axis=1)
+    del logits16
     uncertain = (flat_sigmoid(birdnet_logit) >= uncertain_threshold) & (Y == 0)
 
     info = labels.species_table(det).reindex(species)
@@ -175,7 +192,7 @@ def build_dataset(
         hard_neg=hard_neg,
         uncertain=uncertain,
         birdnet_logit=birdnet_logit,
-        birdnet_top1=np.argmax(logits, axis=1),
+        birdnet_top1=top1,
         any_positive=np.array([len(p) > 0 for p in pos_lists]),
         meta=meta,
         species=species,

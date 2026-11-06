@@ -172,6 +172,7 @@ def run(index: pd.DataFrame, *, threads: int = 4, limit: int | None = None) -> p
     todo = index if limit is None else index.head(limit)
     t0 = time.time()
     errors = []
+    created = 0
     for i, rec in enumerate(todo.itertuples(index=False), start=1):
         cache = _cache_path(rec.file_key)
         if not cache.exists():
@@ -187,12 +188,23 @@ def run(index: pd.DataFrame, *, threads: int = 4, limit: int | None = None) -> p
             tmp = cache.with_name(cache.stem + ".tmp.npz")
             np.savez_compressed(tmp, starts=starts, emb=emb, logits=logit.astype(np.float16))
             tmp.replace(cache)  # escritura atomica: una desconexion no deja caches corruptos
+            created += 1
         rows.append({"file_key": rec.file_key, "cache": str(cache)})
         if i % 10 == 0 or i == len(todo):
             print(f"  {i}/{len(todo)} archivos ({time.time() - t0:.1f} s)", flush=True)
     if errors:
         pd.DataFrame(errors).to_csv(config.WORK_DIR / "embeddings_errors.csv", index=False)
         print(f"  {len(errors)} archivos omitidos (ver embeddings_errors.csv)", flush=True)
+
+    if limit is not None:
+        # Prueba rapida: no se toca el consolidado (puede contener el conjunto completo).
+        print(f"  prueba: {len(rows)} grabaciones listas; {ALL_NPZ.name} no se modifica", flush=True)
+        return pd.DataFrame(rows)
+    if created == 0 and ALL_NPZ.exists():
+        with np.load(ALL_NPZ) as prev:
+            if set(prev["file_key"].astype(str)) == {r["file_key"] for r in rows}:
+                print(f"  sin grabaciones nuevas: {ALL_NPZ.name} ya esta al dia", flush=True)
+                return pd.DataFrame(rows)
 
     # Consolidado
     keys, starts_all, embs, logits = [], [], [], []
@@ -227,8 +239,9 @@ def main() -> None:
         index = labeled_scope(index)
     print(f"Extrayendo embeddings de {len(index) if args.limit is None else args.limit} grabaciones...")
     run(index, threads=args.threads, limit=args.limit)
-    data = np.load(ALL_NPZ)
-    print(f"Consolidado: {data['emb'].shape[0]} ventanas x {data['emb'].shape[1]} dims -> {ALL_NPZ}")
+    if args.limit is None:
+        with np.load(ALL_NPZ) as data:
+            print(f"Consolidado: {data['start'].shape[0]} ventanas -> {ALL_NPZ}")
 
 
 if __name__ == "__main__":
