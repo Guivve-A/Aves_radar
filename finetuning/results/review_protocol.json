@@ -1,0 +1,9 @@
+{
+  "median_prec@0.1": 0.7692307829856873,
+  "median_prec@0.25": 1.0,
+  "median_prec@0.5": 1.0,
+  "species_with_partial_review": [
+    "Mimus longicaudatus",
+    "Leptotila verreauxi"
+  ]
+}

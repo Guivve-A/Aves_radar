@@ -1,0 +1,17 @@
+{
+  "budget": 250,
+  "quota": 40,
+  "files": 250,
+  "sessions": 63,
+  "devices": [
+    "AM001",
+    "AM002",
+    "AM003",
+    "AM005",
+    "AM007",
+    "AM008"
+  ],
+  "mean_coverage_of_quota": 0.978,
+  "selected_positive_windows_targets": 1371,
+  "copied": 257
+}

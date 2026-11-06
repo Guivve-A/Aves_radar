@@ -1,0 +1,21 @@
+{
+  "windows": 4685,
+  "recordings": 247,
+  "sessions": 53,
+  "devices": [
+    "AM001",
+    "AM002",
+    "AM003",
+    "AM005",
+    "AM007",
+    "AM008"
+  ],
+  "species": 33,
+  "positive_pairs": 1581,
+  "windows_with_target_positive": 1476,
+  "windows_with_any_validated_species": 1480,
+  "background_windows": 3205,
+  "hard_negative_pairs": 5,
+  "uncertain_pairs": 79,
+  "embedding_dim": 1024
+}

@@ -1,0 +1,55 @@
+{
+  "windows": 4685,
+  "local_species_in_list": 88,
+  "det_total@0.25": 2404,
+  "det_nonlocal@0.25": 545,
+  "windows_with_nonlocal@0.25": 510,
+  "det_total@0.5": 1248,
+  "det_nonlocal@0.5": 149,
+  "windows_with_nonlocal@0.5": 149,
+  "det_total@0.75": 646,
+  "det_nonlocal@0.75": 31,
+  "windows_with_nonlocal@0.75": 31,
+  "top_nonlocal@0.5": [
+    {
+      "label": "Polioptila nigriceps_Black-capped Gnatcatcher",
+      "detections": 28
+    },
+    {
+      "label": "Psiloscops flammeolus_Flammulated Owl",
+      "detections": 18
+    },
+    {
+      "label": "Patagioenas leucocephala_White-crowned Pigeon",
+      "detections": 13
+    },
+    {
+      "label": "Zenaida macroura_Mourning Dove",
+      "detections": 5
+    },
+    {
+      "label": "Mimus gundlachii_Bahama Mockingbird",
+      "detections": 5
+    },
+    {
+      "label": "Delichon urbicum_Common House-Martin",
+      "detections": 5
+    },
+    {
+      "label": "Embernagra platensis_Great Pampa-Finch",
+      "detections": 4
+    },
+    {
+      "label": "Phaeomyias murina_Mouse-colored Tyrannulet",
+      "detections": 4
+    },
+    {
+      "label": "Furnarius rufus_Rufous Hornero",
+      "detections": 3
+    },
+    {
+      "label": "Acrocephalus rufescens_Greater Swamp Warbler",
+      "detections": 3
+    }
+  ]
+}

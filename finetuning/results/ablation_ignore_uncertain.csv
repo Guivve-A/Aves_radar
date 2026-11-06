@@ -1,0 +1,3 @@
+method,label,macro_ap,median_ap,macro_auc,macro_f1,macro_rec_at_p90,species_evaluated
+ft_birdnet_ignora_inciertos,"BirdNET afinado (L2-SP, $\lambda$=0,3)",0.9682445024298754,0.9973485608263967,0.9995476903946909,0.9644634122617849,0.9115351016058678,33
+lineal_l2_ignora_inciertos,Sonda lineal (L2),0.7195638198886548,0.8033722785573305,0.9498519698031059,0.7103043762096819,0.4068016734821808,33

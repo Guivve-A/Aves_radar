@@ -1,0 +1,34 @@
+species,common_en,common_es,iucn,guild,n,positives,hard_negatives,files,sessions,subset_positives,subset_sessions,subset_hard_negatives,birdnet_label
+Mimus longicaudatus,Long-tailed Mockingbird,Sinsonte colilargo,LC,Omnívoro,5419,5418,1,1413,71,128,17,0,Mimus longicaudatus_Long-tailed Mockingbird
+Columbina cruziana,Croaking Ground Dove,Tortolita croante,LC,Granívoro,1843,1841,2,466,43,71,8,0,Columbina cruziana_Croaking Ground Dove
+Nyctidromus anthonyi,Scrub Nightjar,Chotacabras de Anthony,LC,Insectívoro,1359,1355,4,238,28,118,4,0,Nyctidromus anthonyi_Scrub Nightjar
+Zenaida meloda,West Peruvian Dove,Tórtola melódica,LC,Granívoro,1189,1188,1,429,43,67,10,0,Zenaida meloda_West Peruvian Dove
+Leistes bellicosus,Peruvian Meadowlark,Pastorero Peruano,LC,Omnívoro,926,925,1,583,66,49,14,0,Leistes bellicosus_Peruvian Meadowlark
+Cantorchilus superciliaris,Superciliated Wren,Soterrey cejón,LC,Insectívoro,853,850,3,275,31,60,9,0,Cantorchilus superciliaris_Superciliated Wren
+Forpus coelestis,Pacific Parrotlet,Periquito del Pacífico,LC,Granívoro,864,849,15,251,40,60,7,0,Forpus coelestis_Pacific Parrotlet
+Synallaxis stictothorax,Necklaced Spinetail,Colaespina Collareja,LC,Insectívoro,456,454,2,168,29,52,10,0,Synallaxis stictothorax_Necklaced Spinetail
+Pyrocephalus rubinus,Vermilion Flycatcher,Mosquero cardenal,LC,Insectívoro,429,428,1,156,34,57,7,0,Pyrocephalus rubinus_Vermilion Flycatcher
+Myiodynastes bairdii,Baird's Flycatcher,Mosquero de Baird,LC,Insectívoro,313,307,6,102,21,64,5,1,Myiodynastes bairdii_Baird's Flycatcher
+Tyrannus niveigularis,Snowy-throated Kingbird,Tirano Goliníveo,LC,Omnívoro,265,261,4,51,5,61,5,1,Tyrannus niveigularis_Snowy-throated Kingbird
+Euscarthmus fulviceps,Fulvous-faced Scrub Tyrant,Tirano Enano Cabecifulvo,LC,Insectívoro,209,208,1,115,26,60,10,0,Euscarthmus fulviceps_Fulvous-headed Pygmy-Tyrant
+Todirostrum cinereum,Common Tody-Flycatcher,Espatulilla común,LC,Insectívoro,162,152,10,90,22,48,6,1,Todirostrum cinereum_Common Tody-Flycatcher
+Herpetotheres cachinnans,Laughing Falcon,Halcón reidor,LC,Carnívoro,142,142,0,32,11,58,4,0,Herpetotheres cachinnans_Laughing Falcon
+Melanopareia elegans,Elegant Crescentchest,Pecholuna elegante,LC,Insectívoro,129,128,1,77,39,50,9,0,Melanopareia elegans_Elegant Crescentchest
+Sporophila peruviana,Parrot-billed Seedeater,Espiguero Pico de Loro,LC,Granívoro,112,112,0,27,6,61,4,0,Sporophila peruviana_Parrot-billed Seedeater
+Camptostoma obsoletum,Southern Beardless-Tyrannulet,Tiramolete silbador sureño,LC,Insectívoro,109,105,4,56,14,50,8,1,Camptostoma obsoletum_Southern Beardless-Tyrannulet
+Zenaida auriculata,Eared Dove,Tórtola orejuda,LC,Granívoro,93,93,0,53,16,35,5,0,Zenaida auriculata_Eared Dove
+Nyctidromus albicollis,Common Pauraque,Pauraque,LC,Insectívoro,70,69,1,11,3,62,3,1,Nyctidromus albicollis_Common Pauraque
+Leptotila verreauxi,White-tipped Dove,Paloma Apical,LC,Granívoro,70,67,3,37,8,46,4,0,Leptotila verreauxi_White-tipped Dove
+Athene cunicularia,Burrowing Owl,Búho terrestre,LC,Carnívoro,65,65,0,19,12,50,6,0,Athene cunicularia_Burrowing Owl
+Polioptila plumbea,Tropical Gnatcatcher,Perlita tropical,LC,Insectívoro,64,64,0,48,21,27,8,0,Polioptila plumbea_Tropical Gnatcatcher
+Glaucidium peruanum,Peruvian Pygmy Owl,Mochuelo peruano,LC,Carnívoro,63,63,0,31,10,34,3,0,Glaucidium peruanum_Peruvian Pygmy-Owl
+Icterus mesomelas,Yellow-tailed Oriole,Bolsero Coliamarillo,LC,Omnívoro,60,57,3,27,10,43,6,0,Icterus mesomelas_Yellow-tailed Oriole
+Pseudelaenia leucospodia,Gray-and-white Tyrannulet,Tiranolete Grisiblanco,LC,Insectívoro,57,56,1,34,12,36,8,0,Pseudelaenia leucospodia_Gray-and-white Tyrannulet
+Rhopospina alaudina,Band-tailed Sierra Finch,Yal platero,LC,Granívoro,51,51,0,29,10,33,5,0,Rhopospina alaudina_Band-tailed Sierra Finch
+Pandion haliaetus,Osprey,Águila pescadora,LC,Piscívoro,27,27,0,18,6,22,4,0,Pandion haliaetus_Osprey
+Buteogallus meridionalis,Savanna Hawk,Gavilán sabanero,LC,Carnívoro,26,26,0,25,12,11,5,0,Buteogallus meridionalis_Savanna Hawk
+Sicalis flaveola,Saffron Finch,Pinzón Sabanero Azafranado,LC,Granívoro,25,25,0,11,3,21,3,0,Sicalis flaveola_Saffron Finch
+Dives warczewiczi,Scrub Blackbird,Negro matorralero,LC,Omnívoro,26,22,4,22,13,10,7,0,Dives warczewiczi_Scrub Blackbird
+Saltator striatipectus,Streaked Saltator,Saltador pechilistado,LC,Omnívoro,22,19,3,18,7,10,4,0,Saltator striatipectus_Streaked Saltator
+Lepidocolaptes souleyetii,Streak-headed Woodcreeper,Trepatroncos cabecilistado,LC,Insectívoro,15,15,0,14,8,12,7,0,Lepidocolaptes souleyetii_Streak-headed Woodcreeper
+Momotus subrufescens,Whooping Motmot,Momoto Gritón,LC,Omnívoro,16,15,1,12,2,15,2,0,Momotus subrufescens_Whooping Motmot

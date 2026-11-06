@@ -1,0 +1,20 @@
+\begin{tabular}{lccccccc}
+\toprule
+ & \multicolumn{5}{c}{Régimen estricto} & Enmasc. & Candidatos\\
+\cmidrule(lr){2-6}\cmidrule(lr){7-7}\cmidrule(lr){8-8}
+Método & mAP & AP mediana & AUC & F1 & Rec@P90 & mAP & mAP\\
+\midrule
+BirdNET V2.4 (sin ajuste) & \textbf{0{,}973} & 1{,}000 & 1{,}000 & \textbf{0{,}976} & 0{,}932 & \textbf{0{,}990} & \textbf{0{,}972}\\
+\midrule
+BirdNET afinado (L2-SP, $\lambda$=0,3) & 0{,}968 & 0{,}997 & 1{,}000 & 0{,}965 & 0{,}911 & 0{,}985 & 0{,}967\\
+BirdNET afinado ($\lambda$=0,03) & 0{,}961 & 0{,}991 & 0{,}999 & 0{,}947 & 0{,}876 & 0{,}977 & 0{,}960\\
+BirdNET afinado ($\lambda$=0,003) & 0{,}956 & 0{,}990 & 0{,}999 & 0{,}943 & 0{,}852 & 0{,}972 & 0{,}955\\
+\midrule
+Prototipos coseno (app actual) & 0{,}553 & 0{,}655 & 0{,}937 & 0{,}567 & 0{,}261 & 0{,}556 & 0{,}800\\
+Sonda lineal & 0{,}712 & 0{,}802 & 0{,}949 & 0{,}704 & 0{,}401 & 0{,}719 & 0{,}833\\
+Sonda lineal (L2) & 0{,}724 & 0{,}843 & 0{,}950 & 0{,}717 & 0{,}446 & 0{,}731 & 0{,}841\\
+MLP 256 & 0{,}705 & 0{,}818 & 0{,}954 & 0{,}688 & 0{,}419 & 0{,}712 & 0{,}842\\
+MLP 256 (L2) & 0{,}705 & 0{,}806 & 0{,}961 & 0{,}686 & 0{,}431 & 0{,}711 & 0{,}844\\
+MLP 256 (L2 + mixup) & 0{,}705 & 0{,}825 & 0{,}956 & 0{,}689 & 0{,}434 & 0{,}711 & 0{,}835\\
+\bottomrule
+\end{tabular}
