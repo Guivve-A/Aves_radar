@@ -113,7 +113,10 @@ def evaluate(ann: pd.DataFrame, oof_path: Path = OOF_NPZ, info: pd.DataFrame | N
         y_true.append(row)
         uncertain_names.append(unsure)
     if not rows_idx:
-        raise SystemExit("Ninguna ventana anotada coincide con las puntuaciones fuera de muestra.")
+        raise SystemExit(
+            f"Ninguna de las {len(ann)} ventanas anotadas tiene puntuaciones fuera de muestra: "
+            "comprueba que la hoja y el entrenamiento correspondan a los mismos datos."
+        )
 
     rows_idx = np.array(rows_idx)
     Y = np.vstack(y_true)
@@ -193,6 +196,12 @@ def main() -> None:
     args = parser.parse_args()
 
     ann = load_annotations(args.anotacion)
+    if ann.empty:
+        print(
+            "La hoja todavia no tiene ventanas anotadas (filas con 'especies_presentes' o con "
+            "'sin_aves' = si). No hay nada que evaluar; vuelve a ejecutar este paso cuando el equipo anote."
+        )
+        return
     info_path = config.RESULTS_DIR / "species_info.csv"
     info = pd.read_csv(info_path, index_col=0) if info_path.exists() else None
     summary, per_species = evaluate(ann, args.oof, info)
