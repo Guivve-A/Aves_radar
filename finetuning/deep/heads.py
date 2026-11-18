@@ -282,7 +282,8 @@ def fit(
 
     ``train`` / ``val``: diccionarios con emb, logit, Y, hard_neg, weight y (para ``context``) rec, pos.
     ``extra``: filas adicionales de entrenamiento (mezclas atenuadas) con las mismas claves.
-    ``val_metric(prob) -> float``: criterio de parada temprana (mayor es mejor).
+    ``val_metric(prob[, prob_mezclas]) -> float``: criterio de parada temprana (mayor es mejor). Si ``val``
+    trae ``mix_emb`` / ``mix_logit`` (mezclas de las sesiones de validacion) tambien se puntuan.
     """
     torch.manual_seed(cfg.seed)
     rng = np.random.default_rng(cfg.seed)
@@ -325,7 +326,10 @@ def fit(
             return float("nan")
         probe = copy.deepcopy(model)
         probe.load_state_dict(state)
-        return float(val_metric(predict(probe, val["emb"], val["logit"], val.get("rec"), val.get("pos"))))
+        prob = predict(probe, val["emb"], val["logit"], val.get("rec"), val.get("pos"))
+        if "mix_emb" in val and not context:
+            return float(val_metric(prob, predict(probe, val["mix_emb"], val["mix_logit"])))
+        return float(val_metric(prob))
 
     best_state, best_score, best_epoch = ema.state(), evaluate(ema.state()), 0
     history = [{"epoch": 0, "val": best_score}]

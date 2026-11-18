@@ -5,8 +5,10 @@ lee el grafo y los pesos del archivo TFLite y construye un ``torch.nn.Module``
 que ejecuta exactamente los mismos operadores desde un mapa de activacion
 intermedio hasta el embedding y los logits:
 
-    corte "f3"  salida del bloque 3 (6 x 16 x 108)  -> bloque 4 -> POST_CONV -> embedding -> logits
-    corte "f2"  salida del bloque 2 (12 x 32 x 72)  -> bloques 3 y 4 -> ...
+    corte "g44"  salida del bloque 4 (3 x 8 x 192)   -> BN+ReLU -> POST_CONV 3x3 -> embedding -> logits
+    corte "g42"  salida del sub-bloque 4-2           -> sub-bloques 4-3 y 4-4 -> ...
+    corte "f3"   salida del bloque 3 (6 x 16 x 108)  -> bloque 4 completo -> ...
+    corte "f2"   salida del bloque 2 (12 x 32 x 72)  -> bloques 3 y 4 -> ...
 
 Las capas inferiores quedan congeladas (sus activaciones se guardan en disco
 con ``finetuning.deep.extract``), de modo que afinar las capas profundas es
@@ -29,7 +31,9 @@ import torch.nn.functional as F
 
 from . import tflite_tools as T
 
-CUT_TENSORS = {"f3": T.F3_TENSOR, "f2": T.F2_TENSOR}
+CUT_TENSORS = {"f3": T.F3_TENSOR, "f2": T.F2_TENSOR, "g42": "model/BLOCK_4-2_ADD/add", "g44": "model/BLOCK_4-4_ADD/add"}
+CUT_CHANNELS = {"f3": 108, "f2": 72, "g42": 192, "g44": 192}
+GROUP_ORDER = ("block3", "b41", "b42", "b43", "b44", "post", "classifier")
 _SKIP = {"SHAPE", "STRIDED_SLICE", "PACK"}  # solo calculan la forma del RESHAPE de los bloques SE
 
 
@@ -72,6 +76,8 @@ class BirdNETTop(nn.Module):
         self.class_indices = None if class_indices is None else [int(i) for i in class_indices]
         self.drop_path = 0.0
         self.head_dropout = 0.0
+        self.relative: set[str] = set()
+        self.name_to_tensor = {n: i for i, n in enumerate(names)}
 
         def add_param(tensor_index: int, array: np.ndarray, role: str) -> str:
             key = f"{_pname(names[tensor_index])}__{role}"
@@ -134,7 +140,6 @@ class BirdNETTop(nn.Module):
             else:
                 raise NotImplementedError(f"Operador TFLite no soportado: {kind}")
             self.steps.append(step)
-        self._anchor: dict[str, torch.Tensor] | None = None
 
     # ------------------------------------------------------------------ #
     @staticmethod
@@ -147,30 +152,88 @@ class BirdNETTop(nn.Module):
             return F.relu6(x)
         raise NotImplementedError(f"activacion fusionada {act}")
 
-    def forward(self, x: torch.Tensor, return_embedding: bool = False):
-        """``x``: activaciones del corte en NHWC (como se guardan) o NCHW."""
-        if x.shape[-1] in (72, 108) and x.shape[1] not in (72, 108):
+    def weight(self, key: str) -> torch.Tensor:
+        """Peso efectivo: W0 + s * V en los tensores con parametrizacion relativa; el parametro tal cual en el resto."""
+        if key in self.relative:
+            return getattr(self, f"w0__{key}") + getattr(self, f"sc__{key}") * self.params[key]
+        return self.params[key]
+
+    def make_relative(self, groups: tuple[str, ...]) -> list[str]:
+        """Reparametriza los grupos indicados como W = W0 + s * V, con V = 0 al inicio.
+
+        ``s`` es la magnitud tipica (RMS) de cada canal de salida de W0. Con la normalizacion por lotes
+        fusionada, los pesos de capas distintas difieren en dos ordenes de magnitud; un mismo paso absoluto
+        de Adam moveria unas capas cien veces mas que otras. Entrenar V hace que el paso sea relativo, y un
+        decaimiento desacoplado sobre V tira hacia los pesos de BirdNET (equivale a L2-SP).
+        Los demas grupos quedan congelados. Devuelve las claves entrenables.
+        """
+        trainable = []
+        by_group = self.groups()
+        for g, keys in by_group.items():
+            for key in keys:
+                p = self.params[key]
+                if g not in groups:
+                    p.requires_grad_(False)
+                    continue
+                w0 = p.detach().clone()
+                if float(w0.abs().max()) == 0.0:
+                    p.requires_grad_(False)                       # sesgos que son cero en el archivo: se dejan asi
+                    continue
+                if w0.dim() == 4 and w0.shape[0] > 1:
+                    rms = w0.pow(2).mean(dim=(1, 2, 3), keepdim=True).sqrt()
+                elif w0.dim() == 2:
+                    rms = w0.pow(2).mean(dim=1, keepdim=True).sqrt()
+                else:
+                    rms = w0.pow(2).mean().sqrt().reshape([1] * w0.dim())
+                if rms.numel() > 1:
+                    rms = rms.clamp(min=0.1 * float(rms.median()))
+                self.register_buffer(f"w0__{key}", w0)
+                self.register_buffer(f"sc__{key}", rms.clamp(min=1e-8))
+                self.params[key] = nn.Parameter(torch.zeros_like(w0))
+                self.relative.add(key)
+                trainable.append(key)
+        return trainable
+
+    def relative_drift(self) -> dict[str, float]:
+        """Desviacion relativa ||W - W0|| / ||W0|| por grupo (0 = BirdNET sin cambios)."""
+        out = {}
+        with torch.no_grad():
+            for g, keys in self.groups().items():
+                num = sum(float((getattr(self, f"sc__{k}") * self.params[k]).pow(2).sum()) for k in keys if k in self.relative)
+                den = sum(float(getattr(self, f"w0__{k}").pow(2).sum()) for k in keys if k in self.relative)
+                if den > 0:
+                    out[g] = (num / den) ** 0.5
+        return out
+
+    def forward(self, x: torch.Tensor, return_embedding: bool = False, stop_at: str | None = None):
+        """``x``: activaciones del corte en NHWC (como se guardan) o NCHW.
+
+        ``stop_at``: nombre de un tensor intermedio; si se indica, se devuelve ese tensor (en NHWC).
+        """
+        c = CUT_CHANNELS[self.cut]
+        if x.shape[-1] == c and x.shape[1] != c:
             x = x.permute(0, 3, 1, 2)
         vals: dict[int, torch.Tensor] = {self.start_tensor: x.float()}
+        stop = None if stop_at is None else self.name_to_tensor[stop_at]
         emb = None
         for s in self.steps:
             kind = s["op"]
             if kind in ("CONV_2D", "DEPTHWISE_CONV_2D"):
                 h = vals[s["x"]]
-                w = self.params[s["w"]]
+                w = self.weight(s["w"])
                 if s["same"]:
                     ph = _same_pad(h.shape[2], w.shape[2], s["stride"][0], s["dilation"][0])
                     pw = _same_pad(h.shape[3], w.shape[3], s["stride"][1], s["dilation"][1])
                     if any(ph) or any(pw):
                         h = F.pad(h, (pw[0], pw[1], ph[0], ph[1]))
-                y = F.conv2d(h, w, self.params[s["b"]], stride=s["stride"], dilation=s["dilation"], groups=s["groups"])
+                y = F.conv2d(h, w, self.weight(s["b"]), stride=s["stride"], dilation=s["dilation"], groups=s["groups"])
             elif kind == "MUL":
                 a = vals[s["x"][0]]
-                y = a * (self.params[s["c"]] if "c" in s else vals[s["x"][1]])
+                y = a * (self.weight(s["c"]) if "c" in s else vals[s["x"][1]])
             elif kind == "ADD":
                 a = vals[s["x"][0]]
                 if "c" in s:
-                    y = a + self.params[s["c"]]
+                    y = a + self.weight(s["c"])
                 else:
                     b = vals[s["x"][1]]
                     if self.training and self.drop_path > 0 and "_ADD" in s["name"]:
@@ -194,45 +257,28 @@ class BirdNETTop(nn.Module):
                 emb = h
                 if self.training and self.head_dropout > 0:
                     h = F.dropout(h, self.head_dropout)
-                y = F.linear(h, self.params[s["w"]], self.params[s["b"]])
+                y = F.linear(h, self.weight(s["w"]), self.weight(s["b"]))
             y = self._activate(y, s.get("act", 0))
             vals[s["out"]] = y
+            if stop is not None and s["out"] == stop:
+                return y.permute(0, 2, 3, 1)
         logits = vals[self.out_tensor]
         return (logits, emb) if return_embedding else logits
 
     # ------------------------------------------------------------------ #
     def groups(self) -> dict[str, list[str]]:
         """Nombres de parametros por bloque (para tasas de aprendizaje discriminativas)."""
-        out: dict[str, list[str]] = {"block3": [], "block4": [], "post": [], "classifier": []}
+        out: dict[str, list[str]] = {g: [] for g in GROUP_ORDER}
         for key in self.params.keys():
             if key.startswith("BLOCK_3"):
                 out["block3"].append(key)
             elif key.startswith("BLOCK_4"):
-                out["block4"].append(key)
+                out[f"b4{key[8]}"].append(key)                # BLOCK_4_<n>_... -> b41 ... b44
             elif key.startswith("CLASS_DENSE") or key.startswith("Identity"):
                 out["classifier"].append(key)
             else:
                 out["post"].append(key)
         return out
-
-    def set_anchor(self) -> None:
-        """Guarda los pesos actuales (los de BirdNET) como ancla de la regularizacion L2-SP."""
-        self._anchor = {k: v.detach().clone() for k, v in self.params.items()}
-
-    def l2sp(self, weights: dict[str, float] | None = None) -> torch.Tensor:
-        """Suma de ||w - w_BirdNET||^2 por bloque (Li et al., 2018), opcionalmente ponderada."""
-        if self._anchor is None:
-            raise RuntimeError("Llama antes a set_anchor().")
-        total = self.params[next(iter(self.params.keys()))].new_zeros(())
-        for group, keys in self.groups().items():
-            lam = 1.0 if weights is None else float(weights.get(group, 0.0))
-            if lam == 0.0:
-                continue
-            for k in keys:
-                p = self.params[k]
-                if p.requires_grad:
-                    total = total + lam * (p - self._anchor[k]).pow(2).sum()
-        return total
 
     def num_parameters(self) -> dict[str, int]:
         return {g: int(sum(self.params[k].numel() for k in keys)) for g, keys in self.groups().items()}

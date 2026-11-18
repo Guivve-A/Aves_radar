@@ -26,15 +26,21 @@ LEVELS = (0.0, 6.0, 12.0, 18.0, 24.0)
 
 
 class SNRBenchmark:
-    def __init__(self, data, plan: pd.DataFrame, fpr: float = 0.005, min_pos: int = 10):
+    def __init__(self, data, plan: pd.DataFrame, fpr: float = 0.005, min_pos: int = 10, rows: np.ndarray | None = None):
+        """``rows``: si se indica, la prueba se limita a esas ventanas de origen (p. ej. la validacion interna)."""
         self.data, self.fpr, self.min_pos = data, fpr, min_pos
         self.src = plan["src"].to_numpy()
         kind = plan["kind"].to_numpy()
         att = plan["atten_db"].to_numpy()
-        self.bg_clean = np.flatnonzero(MX.background_mask(data))
-        self.bg_mix = np.flatnonzero(kind == "bg_test")
-        self.test_rows = {a: np.flatnonzero((kind == "test") & np.isclose(att, a)) for a in MX.TEST_ATTENUATIONS}
-        self.sources = np.unique(self.src[kind == "test"])  # las mismas ventanas de origen en todos los niveles
+        inside = np.ones(len(data.Y), bool)
+        if rows is not None:
+            inside[:] = False
+            inside[rows] = True
+        self.bg_clean = np.flatnonzero(MX.background_mask(data) & inside)
+        self.bg_mix = np.flatnonzero((kind == "bg_test") & inside[self.src])
+        self.test_rows = {a: np.flatnonzero((kind == "test") & np.isclose(att, a) & inside[self.src]) for a in MX.TEST_ATTENUATIONS}
+        self.sources = np.unique(self.src[(kind == "test") & inside[self.src]])  # las mismas ventanas de origen en todos los niveles
+        self.mix_rows = np.sort(np.r_[self.bg_mix, *self.test_rows.values()])
         self.w = data.weight.astype(np.float64)
         self.uniq, self.inv = np.unique(data.groups, return_inverse=True)
         # filas (del conjunto original) que aportan el peso de cada negativo
@@ -71,6 +77,13 @@ class SNRBenchmark:
                 if pw.sum() > 0:
                     res[i, j] = float((pw * (ps > thr)).sum() / pw.sum())
         return res
+
+    def mean_recall(self, clean: np.ndarray, mixed: np.ndarray) -> float:
+        """Exhaustividad media (macro por especie) sobre los niveles atenuados (6 a 24 dB)."""
+        prep = self.prepare(clean, mixed)
+        if not prep:
+            return float("nan")
+        return float(np.nanmean(self.recalls(prep)[:, 1:]))
 
     def species_table(self, prep: list[dict]) -> pd.DataFrame:
         rec = self.recalls(prep)

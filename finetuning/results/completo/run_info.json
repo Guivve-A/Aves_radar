@@ -1,0 +1,30 @@
+{
+  "chosen_local_model": "birdnet",
+  "best_scratch_head": "lineal_l2",
+  "cv_best_epochs": {
+    "ft_birdnet": [
+      18,
+      0,
+      0,
+      0,
+      15
+    ],
+    "lineal_l2": [
+      3,
+      1,
+      1,
+      1,
+      17
+    ],
+    "mlp_l2": [
+      1,
+      2,
+      2,
+      3,
+      3
+    ]
+  },
+  "candidate_threshold": 0.1,
+  "mode": "rapido",
+  "elapsed_s": 9469.2
+}

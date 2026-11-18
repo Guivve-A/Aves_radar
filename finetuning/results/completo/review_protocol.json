@@ -1,0 +1,13 @@
+{
+  "median_prec@0.1": 0.4722222089767456,
+  "median_prec@0.25": 0.9008695483207703,
+  "median_prec@0.5": 0.9100000262260437,
+  "species_with_partial_review": [
+    "Mimus longicaudatus",
+    "Nyctidromus albicollis",
+    "Leptotila verreauxi",
+    "Icterus mesomelas",
+    "Dives warczewiczi",
+    "Saltator striatipectus"
+  ]
+}

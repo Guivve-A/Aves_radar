@@ -143,6 +143,44 @@ def val_metric_fn(data: D.DeepData, rows: np.ndarray):
     return metric
 
 
+MAP_TOLERANCE = 0.01
+
+
+class RobustSelector:
+    """Criterio de seleccion para los modelos entrenados con mezclas atenuadas.
+
+    La mAP de validacion premia parecerse a BirdNET (las etiquetas salen de BirdNET), asi que
+    no sirve para elegir un modelo mas sensible. Regla fijada de antemano: maximizar la
+    exhaustividad sobre los cantos atenuados de las sesiones de validacion interna, sujeto a que
+    la mAP enmascarada no baje mas de ``MAP_TOLERANCE`` respecto del punto de partida (BirdNET).
+    Todo se calcula con sesiones de entrenamiento: el pliegue de prueba no interviene.
+    """
+
+    def __init__(self, data: D.DeepData, val_rows: np.ndarray, mix: Mixtures, eval_rows: np.ndarray | None = None, weights: np.ndarray | None = None):
+        self.data, self.val_rows = data, val_rows
+        self.rows = val_rows if eval_rows is None else eval_rows          # filas donde se predice (puede ser un subconjunto)
+        self.bench = SNRBenchmark(data, mix.plan, min_pos=5, rows=self.rows)
+        self.mix_rows = self.bench.mix_rows
+        Y, unc = data.Y[self.rows], data.uncertain[self.rows]
+        w = (data.weight[self.rows] if weights is None else weights).astype(np.float64)
+        usable = [k for k in range(Y.shape[1]) if Y[:, k].sum() > 0]
+        self._map = lambda prob: float(np.nanmean([M.weighted_ap(Y[~unc[:, k], k], prob[~unc[:, k], k].astype(np.float64), w[~unc[:, k]]) for k in usable]))
+        self.map0: float | None = None
+        self.last: dict = {}
+
+    def __call__(self, prob: np.ndarray, prob_mix: np.ndarray) -> float:
+        m = self._map(prob)
+        clean = np.zeros_like(self.data.Y)
+        clean[self.rows] = prob
+        mixed = np.zeros((len(self.bench.src), self.data.Y.shape[1]), np.float32)
+        mixed[self.mix_rows] = prob_mix
+        r = self.bench.mean_recall(clean, mixed)
+        if self.map0 is None:
+            self.map0 = m                                            # primera llamada: punto de partida
+        self.last = {"map": m, "recall": r}
+        return r if m >= self.map0 - MAP_TOLERANCE else m - 10.0
+
+
 def fit_predict(name: str, data: D.DeepData, fit_rows: np.ndarray, val_rows: np.ndarray, test_rows: np.ndarray, mix: Mixtures | None, dense=None):
     """Devuelve (probabilidades de prueba, probabilidades de las mezclas de prueba o None, informacion)."""
     if name == "birdnet":
@@ -166,11 +204,16 @@ def fit_predict(name: str, data: D.DeepData, fit_rows: np.ndarray, val_rows: np.
         return head.predict_proba(data.emb[test_rows]), None, {"best_epoch": int(getattr(head, "best_epoch", -1))}
 
     train, val = subset(data, fit_rows), subset(data, val_rows)
-    metric = val_metric_fn(data, val_rows)
     best = None
     for i, cfg in enumerate(METHODS[name]):
-        extra = mix.training_rows(fit_rows) if (mix is not None and cfg.mixture_weight > 0) else None
-        res = H.fit(cfg, train, val, metric, extra=extra)
+        use_mix = mix is not None and cfg.mixture_weight > 0
+        extra = mix.training_rows(fit_rows) if use_mix else None
+        if use_mix and cfg.kind == "residual":
+            metric = RobustSelector(data, val_rows, mix)
+            vdict = dict(val, mix_emb=mix.emb[metric.mix_rows], mix_logit=mix.logit[metric.mix_rows])
+        else:
+            metric, vdict = val_metric_fn(data, val_rows), val
+        res = H.fit(cfg, train, vdict, metric, extra=extra)
         score = max(h["val"] for h in res.history if h["epoch"] == res.best_epoch)
         if best is None or score > best[0]:
             best = (score, i, res)

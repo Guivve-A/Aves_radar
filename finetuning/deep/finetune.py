@@ -40,7 +40,7 @@ from . import heads as H
 from . import metrics as M
 from . import mixtures as MX
 from .backbone import BirdNETTop
-from .train_heads import LABELS, RESULTS, Mixtures, evaluate, val_metric_fn
+from .train_heads import LABELS, RESULTS, Mixtures, RobustSelector, evaluate
 
 
 @dataclass
@@ -136,17 +136,27 @@ def fit(cfg: FTConfig, data: D.DeepData, fit_rows: np.ndarray, val_rows: np.ndar
     vy, vw, vunc = data.Y[sub_rows], val_w[val_sel], data.uncertain[sub_rows]
     usable = [k for k in range(vy.shape[1]) if vy[:, k].sum() > 0]
 
+    selector = RobustSelector(data, val_rows, mix, eval_rows=sub_rows, weights=vw) if (mix is not None and cfg.mixture_weight > 0) else None
+    val_detail: dict = {}
+
     def val_score(state: dict) -> float:
         probe = copy.deepcopy(model)
         probe.load_state_dict(state)
         prob = predict(probe, feat, sub_rows)
+        if selector is not None:
+            # exhaustividad sobre cantos atenuados de validacion, sujeta a no perder mAP (ver RobustSelector)
+            score = selector(prob, predict(probe, mix_feat, selector.mix_rows))
+            val_detail.update(selector.last)
+            return score
         aps = [M.weighted_ap(vy[~vunc[:, k], k], prob[~vunc[:, k], k].astype(np.float64), vw[~vunc[:, k]]) for k in usable]
+        val_detail.update({"map": float(np.nanmean(aps))})
         return float(np.nanmean(aps))
 
     best_state, best_score, best_epoch = ema.state(), val_score(ema.state()), 0
-    history = [{"epoch": 0, "val": best_score}]
+    history = [{"epoch": 0, "val": best_score, **val_detail}]
+    best_detail = dict(val_detail)
     if verbose:
-        print(f"    inicio (BirdNET) val {best_score:.4f}; {len(pri_local)} filas prioritarias + {n_bg} de fondo + {n_mix} mezclas por epoca", flush=True)
+        print(f"    inicio (BirdNET) val {best_score:.4f} {val_detail}; {len(pri_local)} filas prioritarias + {n_bg} de fondo + {n_mix} mezclas por epoca", flush=True)
     step = 0
     for epoch in range(1, cfg.epochs + 1):
         t0 = time.time()
@@ -194,21 +204,24 @@ def fit(cfg: FTConfig, data: D.DeepData, fit_rows: np.ndarray, val_rows: np.ndar
             step += 1
             run += float(loss.detach())
         score = val_score(ema.state())
-        history.append({"epoch": epoch, "loss": run / steps_per_epoch, "val": score, "seconds": round(time.time() - t0, 1)})
+        history.append({"epoch": epoch, "loss": run / steps_per_epoch, "val": score, **val_detail, "seconds": round(time.time() - t0, 1)})
         if verbose:
-            print(f"    epoca {epoch} perdida {run / steps_per_epoch:.4f} val {score:.4f} ({time.time() - t0:.0f} s)", flush=True)
+            print(f"    epoca {epoch} perdida {run / steps_per_epoch:.4f} val {score:.4f} {val_detail} ({time.time() - t0:.0f} s)", flush=True)
         if score > best_score + 1e-5:
             best_state, best_score, best_epoch = ema.state(), score, epoch
+            best_detail = dict(val_detail)
         elif epoch - best_epoch >= cfg.patience:
             break
     model.load_state_dict(best_state)
     model.eval()
     with torch.no_grad():
         drift = {g: float(sum((model.params[k] - model._anchor[k]).pow(2).sum() for k in keys) ** 0.5 / max(sum(model._anchor[k].pow(2).sum() for k in keys) ** 0.5, 1e-12)) for g, keys in groups.items() if keys}
-    return model, {"best_epoch": best_epoch, "val_start": history[0]["val"], "val_best": best_score, "history": history, "relative_drift": drift}
+    return model, {"best_epoch": best_epoch, "val_start": history[0]["val"], "val_best": best_score, "val_detail_start": {k: v for k, v in history[0].items() if k in ("map", "recall")}, "val_detail_best": best_detail, "history": history, "relative_drift": drift}
 
 
-def cross_validate(cfg: FTConfig, data: D.DeepData, mix: Mixtures | None, name: str, folds: np.ndarray):
+def cross_validate(cfgs: list[FTConfig], data: D.DeepData, mix: Mixtures | None, name: str, folds: np.ndarray):
+    """Validacion cruzada. Si hay varias configuraciones, cada pliegue elige la mejor con su validacion interna."""
+    cfg = cfgs[0]
     feat = data.f3 if cfg.cut == "f3" else data.f2
     mix_feat = None
     if mix is not None:
@@ -225,7 +238,13 @@ def cross_validate(cfg: FTConfig, data: D.DeepData, mix: Mixtures | None, name: 
         is_val = D.inner_split(data.groups[tr])
         fit_rows, val_rows = tr[~is_val], tr[is_val]
         print(f"  pliegue {int(f) + 1}: {len(fit_rows)} ventanas de ajuste, {len(val_rows)} de validacion, {len(te)} de prueba", flush=True)
-        model, info = fit(cfg, data, fit_rows, val_rows, mix, mix_feat)
+        model, info = None, None
+        for i, c in enumerate(cfgs):
+            m_i, info_i = fit(c, data, fit_rows, val_rows, mix, mix_feat)
+            info_i["config"] = i
+            print(f"    configuracion {i} (lr {c.lr:g}): mejor epoca {info_i['best_epoch']}, val {info_i['val_start']:.4f} -> {info_i['val_best']:.4f}", flush=True)
+            if info is None or info_i["val_best"] > info["val_best"] + 1e-6:
+                model, info = m_i, info_i
         oof[te] = predict(model, feat, te)
         if mix is not None:
             mrows = mix.test_rows(te)
@@ -241,8 +260,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--cut", default="f3", choices=("f3", "f2"))
     parser.add_argument("--name", default=None)
-    parser.add_argument("--epochs", type=int, default=6)
-    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--epochs", type=int, default=4)
+    parser.add_argument("--lr", default="1e-4,3e-5", help="Tasas de aprendizaje candidatas (se elige por pliegue con la validacion interna).")
     parser.add_argument("--l2sp", type=float, default=1e-2)
     parser.add_argument("--no-mixtures", action="store_true")
     parser.add_argument("--threads", type=int, default=4)
@@ -251,17 +270,21 @@ def main() -> None:
     torch.set_num_threads(args.threads)
     t0 = time.time()
     data = D.load(maps=True)
-    cfg = FTConfig(cut=args.cut, epochs=args.epochs, lr=args.lr, l2sp=args.l2sp)
-    if args.cut == "f2":
-        cfg.train_groups = ("block3", "block4", "post", "classifier")
-    if args.no_mixtures:
-        cfg.mixture_weight = 0.0
+    cfgs = []
+    for lr in [float(x) for x in str(args.lr).split(",") if x]:
+        c = FTConfig(cut=args.cut, epochs=args.epochs, lr=lr, l2sp=args.l2sp, background_per_epoch=3000, mixtures_per_epoch=4000)
+        if args.cut == "f2":
+            c.train_groups = ("block3", "block4", "post", "classifier")
+        if args.no_mixtures:
+            c.mixture_weight = 0.0
+        cfgs.append(c)
+    cfg = cfgs[0]
     name = args.name or ("ft_bloque4" if args.cut == "f3" else "ft_bloques34") + ("" if not args.no_mixtures else "_sin_mezclas")
     LABELS.setdefault(name, {"f3": "BirdNET con bloque 4 afinado", "f2": "BirdNET con bloques 3 y 4 afinados"}[args.cut] + (" (sin mezclas)" if args.no_mixtures else ""))
     mix = None if args.no_mixtures else Mixtures(data)
     folds = D.group_folds(data.groups)
     print(f"Ajuste fino '{name}': corte {cfg.cut}, grupos {cfg.train_groups}, {len(data.Y)} ventanas", flush=True)
-    oof, oof_mix, infos = cross_validate(cfg, data, mix, name, folds)
+    oof, oof_mix, infos = cross_validate(cfgs, data, mix, name, folds)
     np.savez_compressed(D.DEEP_DIR / f"oof_{name}.npz", folds=folds, oof=oof, **({"mix": oof_mix} if oof_mix is not None else {}))
     scores = {"birdnet": flat_sigmoid(data.logit), name: oof}
     scores_mix = {}
@@ -271,8 +294,7 @@ def main() -> None:
         bn_mix[all_test] = flat_sigmoid(mix.logit[all_test])
         scores_mix = {"birdnet": bn_mix, name: oof_mix}
     evaluate(data, scores, scores_mix, mix, reps=args.reps, tag=name)
-    cfg_dict = asdict(cfg)
-    (RESULTS / f"run_info_{name}.json").write_text(json.dumps({"config": cfg_dict, "folds": infos, "elapsed_s": round(time.time() - t0, 1)}, indent=2, default=str), encoding="utf-8")
+    (RESULTS / f"run_info_{name}.json").write_text(json.dumps({"configs": [asdict(c) for c in cfgs], "folds": infos, "elapsed_s": round(time.time() - t0, 1)}, indent=2, default=str), encoding="utf-8")
     print(f"Listo en {time.time() - t0:.0f} s", flush=True)
 
 

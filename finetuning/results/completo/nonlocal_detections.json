@@ -1,0 +1,55 @@
+{
+  "windows": 267815,
+  "local_species_in_list": 88,
+  "det_total@0.25": 41778,
+  "det_nonlocal@0.25": 21726,
+  "windows_with_nonlocal@0.25": 20748,
+  "det_total@0.5": 17117,
+  "det_nonlocal@0.5": 4999,
+  "windows_with_nonlocal@0.5": 4960,
+  "det_total@0.75": 7972,
+  "det_nonlocal@0.75": 1042,
+  "windows_with_nonlocal@0.75": 1041,
+  "top_nonlocal@0.5": [
+    {
+      "label": "Phyllopalpus pulchellus_Handsome Trig",
+      "detections": 1142
+    },
+    {
+      "label": "Psiloscops flammeolus_Flammulated Owl",
+      "detections": 319
+    },
+    {
+      "label": "Gastrophryne olivacea_Great Plains Narrow-mouthed Toad",
+      "detections": 270
+    },
+    {
+      "label": "Oecanthus nigricornis_Blackhorned Tree Cricket",
+      "detections": 269
+    },
+    {
+      "label": "Polioptila nigriceps_Black-capped Gnatcatcher",
+      "detections": 178
+    },
+    {
+      "label": "Mimus gundlachii_Bahama Mockingbird",
+      "detections": 137
+    },
+    {
+      "label": "Patagioenas leucocephala_White-crowned Pigeon",
+      "detections": 125
+    },
+    {
+      "label": "Cantorchilus guarayanus_Fawn-breasted Wren",
+      "detections": 116
+    },
+    {
+      "label": "Gallicrex cinerea_Watercock",
+      "detections": 87
+    },
+    {
+      "label": "Bubo virginianus_Great Horned Owl",
+      "detections": 80
+    }
+  ]
+}

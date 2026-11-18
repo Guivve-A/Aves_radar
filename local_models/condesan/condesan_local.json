@@ -1,7 +1,7 @@
 {
   "name": "EcoAcoustic Sentinel - clasificador local CONDESAN",
   "version": "1.0",
-  "created_utc": "2026-11-04T03:29:48+00:00",
+  "created_utc": "2026-11-06T17:47:42+00:00",
   "weights": "birdnet_original",
   "selected_method": "birdnet",
   "selection_rule": "metodo con mayor mAP estricto en validacion cruzada agrupada por sesion",
@@ -22,8 +22,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "pocos rechazos",
-      "train_positives": 128,
-      "cv_ap": 0.6800172699176944
+      "train_positives": 4528,
+      "cv_ap": 0.5432379353510607
     },
     {
       "scientific": "Columbina cruziana",
@@ -33,8 +33,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "logistica",
-      "train_positives": 71,
-      "cv_ap": 0.9159331753859579
+      "train_positives": 1727,
+      "cv_ap": 0.9467849313803272
     },
     {
       "scientific": "Nyctidromus anthonyi",
@@ -44,8 +44,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "logistica",
-      "train_positives": 118,
-      "cv_ap": 0.9999999999999999
+      "train_positives": 1324,
+      "cv_ap": 0.9990571721766897
     },
     {
       "scientific": "Zenaida meloda",
@@ -55,8 +55,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "pocos rechazos",
-      "train_positives": 67,
-      "cv_ap": 0.9742399173350333
+      "train_positives": 1044,
+      "cv_ap": 0.9613334468458323
     },
     {
       "scientific": "Leistes bellicosus",
@@ -66,8 +66,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "pocos rechazos",
-      "train_positives": 49,
-      "cv_ap": 1.0
+      "train_positives": 925,
+      "cv_ap": 0.9696418305230006
     },
     {
       "scientific": "Cantorchilus superciliaris",
@@ -77,8 +77,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "logistica",
-      "train_positives": 60,
-      "cv_ap": 0.9890344347160595
+      "train_positives": 795,
+      "cv_ap": 0.9263914282788069
     },
     {
       "scientific": "Forpus coelestis",
@@ -88,8 +88,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.335,
       "threshold_method": "logistica",
-      "train_positives": 60,
-      "cv_ap": 0.9982891392725235
+      "train_positives": 725,
+      "cv_ap": 0.9624793320555786
     },
     {
       "scientific": "Synallaxis stictothorax",
@@ -99,8 +99,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "logistica",
-      "train_positives": 52,
-      "cv_ap": 0.9974358974358976
+      "train_positives": 369,
+      "cv_ap": 0.98099906543109
     },
     {
       "scientific": "Pyrocephalus rubinus",
@@ -110,8 +110,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "pocos rechazos",
-      "train_positives": 57,
-      "cv_ap": 1.0000000000000004
+      "train_positives": 415,
+      "cv_ap": 0.9960025364653543
     },
     {
       "scientific": "Myiodynastes bairdii",
@@ -121,8 +121,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.31,
       "threshold_method": "logistica",
-      "train_positives": 64,
-      "cv_ap": 0.9943973395906389
+      "train_positives": 273,
+      "cv_ap": 0.9671268555469035
     },
     {
       "scientific": "Tyrannus niveigularis",
@@ -132,8 +132,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "logistica",
-      "train_positives": 61,
-      "cv_ap": 0.9314071959594772
+      "train_positives": 261,
+      "cv_ap": 0.8197150476780968
     },
     {
       "scientific": "Euscarthmus fulviceps",
@@ -143,8 +143,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "pocos rechazos",
-      "train_positives": 60,
-      "cv_ap": 1.0
+      "train_positives": 201,
+      "cv_ap": 0.9167931459358679
     },
     {
       "scientific": "Todirostrum cinereum",
@@ -154,8 +154,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.805,
       "threshold_method": "logistica",
-      "train_positives": 48,
-      "cv_ap": 0.9986975397428478
+      "train_positives": 149,
+      "cv_ap": 0.938422372493242
     },
     {
       "scientific": "Herpetotheres cachinnans",
@@ -165,8 +165,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "sin rechazos",
-      "train_positives": 58,
-      "cv_ap": 1.0000000000000002
+      "train_positives": 141,
+      "cv_ap": 0.9961440024977148
     },
     {
       "scientific": "Melanopareia elegans",
@@ -176,8 +176,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "pocos rechazos",
-      "train_positives": 50,
-      "cv_ap": 1.0
+      "train_positives": 128,
+      "cv_ap": 0.9357842684093318
     },
     {
       "scientific": "Sporophila peruviana",
@@ -187,8 +187,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "sin rechazos",
-      "train_positives": 61,
-      "cv_ap": 0.9991979552265116
+      "train_positives": 112,
+      "cv_ap": 0.9994323887027112
     },
     {
       "scientific": "Camptostoma obsoletum",
@@ -198,8 +198,8 @@
       "threshold": 0.29000000000000004,
       "threshold_p95": 0.495,
       "threshold_method": "logistica",
-      "train_positives": 50,
-      "cv_ap": 0.9888568123224077
+      "train_positives": 105,
+      "cv_ap": 0.8788968536347594
     },
     {
       "scientific": "Zenaida auriculata",
@@ -209,8 +209,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "sin rechazos",
-      "train_positives": 35,
-      "cv_ap": 1.0
+      "train_positives": 93,
+      "cv_ap": 0.9778879425475577
     },
     {
       "scientific": "Nyctidromus albicollis",
@@ -220,8 +220,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "pocos rechazos",
-      "train_positives": 62,
-      "cv_ap": 0.9963054747519944
+      "train_positives": 69,
+      "cv_ap": 0.5599908574456087
     },
     {
       "scientific": "Leptotila verreauxi",
@@ -231,8 +231,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "logistica",
-      "train_positives": 46,
-      "cv_ap": 0.6796891592286692
+      "train_positives": 67,
+      "cv_ap": 0.08409795244455946
     },
     {
       "scientific": "Athene cunicularia",
@@ -242,8 +242,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "sin rechazos",
-      "train_positives": 50,
-      "cv_ap": 1.0
+      "train_positives": 65,
+      "cv_ap": 0.9997668997668996
     },
     {
       "scientific": "Polioptila plumbea",
@@ -253,8 +253,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "sin rechazos",
-      "train_positives": 27,
-      "cv_ap": 0.9999999999999998
+      "train_positives": 63,
+      "cv_ap": 0.9233738933015405
     },
     {
       "scientific": "Glaucidium peruanum",
@@ -264,8 +264,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "sin rechazos",
-      "train_positives": 34,
-      "cv_ap": 1.0
+      "train_positives": 62,
+      "cv_ap": 0.884320250092562
     },
     {
       "scientific": "Icterus mesomelas",
@@ -275,8 +275,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "logistica",
-      "train_positives": 43,
-      "cv_ap": 1.0000000000000002
+      "train_positives": 57,
+      "cv_ap": 0.5826329068310958
     },
     {
       "scientific": "Pseudelaenia leucospodia",
@@ -286,8 +286,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "pocos rechazos",
-      "train_positives": 36,
-      "cv_ap": 1.0
+      "train_positives": 56,
+      "cv_ap": 0.8867577751595337
     },
     {
       "scientific": "Rhopospina alaudina",
@@ -297,8 +297,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "sin rechazos",
-      "train_positives": 33,
-      "cv_ap": 0.9999999999999999
+      "train_positives": 51,
+      "cv_ap": 1.0000000000000002
     },
     {
       "scientific": "Pandion haliaetus",
@@ -308,8 +308,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "sin rechazos",
-      "train_positives": 22,
-      "cv_ap": 0.96478668464631
+      "train_positives": 27,
+      "cv_ap": 0.897999400836782
     },
     {
       "scientific": "Buteogallus meridionalis",
@@ -319,8 +319,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "sin rechazos",
-      "train_positives": 11,
-      "cv_ap": 0.9924242424242424
+      "train_positives": 25,
+      "cv_ap": 0.8385453486142341
     },
     {
       "scientific": "Sicalis flaveola",
@@ -330,8 +330,8 @@
       "threshold": 0.25,
       "threshold_p95": 0.25,
       "threshold_method": "sin rechazos",
-      "train_positives": 21,
-      "cv_ap": 1.0000000000000002
+      "train_positives": 25,
+      "cv_ap": 1.0
     },
     {
       "scientific": "Dives warczewiczi",
@@ -341,8 +341,8 @@
       "threshold": 0.34,
       "threshold_p95": 0.4,
       "threshold_method": "logistica",
-      "train_positives": 10,
-      "cv_ap": 1.0
+      "train_positives": 21,
+      "cv_ap": 0.4549037543122261
     },
     {
       "scientific": "Saltator striatipectus",
@@ -352,8 +352,8 @@
       "threshold": 0.5,
       "threshold_p95": null,
       "threshold_method": "logistica",
-      "train_positives": 10,
-      "cv_ap": 0.9999999999999999
+      "train_positives": 19,
+      "cv_ap": 0.4503333760180781
     },
     {
       "scientific": "Lepidocolaptes souleyetii",
@@ -364,7 +364,7 @@
       "threshold_p95": 0.25,
       "threshold_method": "sin rechazos",
       "train_positives": 12,
-      "cv_ap": 1.0
+      "cv_ap": 0.9510602823102824
     },
     {
       "scientific": "Momotus subrufescens",
@@ -375,13 +375,13 @@
       "threshold_p95": 0.25,
       "threshold_method": "pocos rechazos",
       "train_positives": 15,
-      "cv_ap": 1.0
+      "cv_ap": 0.8057091982091982
     }
   ],
   "training_data": {
-    "windows": 4685,
-    "recordings": 247,
-    "sessions": 53,
+    "windows": 267815,
+    "recordings": 16629,
+    "sessions": 88,
     "devices": [
       "AM001",
       "AM002",
@@ -391,12 +391,12 @@
       "AM008"
     ],
     "species": 33,
-    "positive_pairs": 1581,
-    "windows_with_target_positive": 1476,
-    "windows_with_any_validated_species": 1480,
-    "background_windows": 3205,
-    "hard_negative_pairs": 5,
-    "uncertain_pairs": 79,
+    "positive_pairs": 13949,
+    "windows_with_target_positive": 13583,
+    "windows_with_any_validated_species": 13722,
+    "background_windows": 254093,
+    "hard_negative_pairs": 72,
+    "uncertain_pairs": 2809,
     "embedding_dim": 1024
   },
   "license_note": "Basado en BirdNET V2.4 (Cornell Lab / TU Chemnitz, CC BY-NC-SA 4.0): uso no comercial, atribucion y compartir igual."

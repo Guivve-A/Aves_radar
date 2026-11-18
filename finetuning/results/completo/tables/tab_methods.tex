@@ -1,0 +1,15 @@
+\begin{tabular}{lccccccc}
+\toprule
+ & \multicolumn{5}{c}{Régimen estricto} & Enmasc. & Candidatos\\
+\cmidrule(lr){2-6}\cmidrule(lr){7-7}\cmidrule(lr){8-8}
+Método & mAP & AP mediana & AUC & F1 & Rec@P90 & mAP & mAP\\
+\midrule
+BirdNET V2.4 (sin ajuste) & \textbf{0{,}850} & 0{,}936 & 1{,}000 & \textbf{0{,}890} & 0{,}689 & \textbf{0{,}925} & \textbf{0{,}850}\\
+\midrule
+BirdNET afinado (L2-SP, $\lambda$=0,3) & 0{,}845 & 0{,}935 & 1{,}000 & 0{,}880 & 0{,}675 & 0{,}918 & 0{,}846\\
+\midrule
+Prototipos coseno (app actual) & 0{,}361 & 0{,}417 & 0{,}979 & 0{,}410 & 0{,}080 & 0{,}369 & 0{,}570\\
+Sonda lineal (L2) & 0{,}601 & 0{,}636 & 0{,}977 & 0{,}609 & 0{,}321 & 0{,}626 & 0{,}675\\
+MLP 256 (L2) & 0{,}596 & 0{,}681 & 0{,}997 & 0{,}604 & 0{,}311 & 0{,}619 & 0{,}676\\
+\bottomrule
+\end{tabular}

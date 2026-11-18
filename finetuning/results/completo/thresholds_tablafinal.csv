@@ -1,0 +1,34 @@
+species,reviewed,rejected,precision_reviewed,method,thr_p90,thr_p95
+Mimus longicaudatus,5419,1,0.999815464107769,pocos rechazos,0.25,0.25
+Columbina cruziana,1843,2,0.9989148128052089,logistica,0.25,0.25
+Nyctidromus anthonyi,1359,4,0.9970566593083149,logistica,0.25,0.25
+Zenaida meloda,1189,1,0.9991589571068125,pocos rechazos,0.25,0.25
+Leistes bellicosus,926,1,0.9989200863930886,pocos rechazos,0.25,0.25
+Cantorchilus superciliaris,853,3,0.9964830011723329,logistica,0.25,0.25
+Forpus coelestis,864,15,0.9826388888888888,logistica,0.25,0.335
+Synallaxis stictothorax,456,2,0.9956140350877193,logistica,0.25,0.25
+Pyrocephalus rubinus,429,1,0.9976689976689976,pocos rechazos,0.25,0.25
+Myiodynastes bairdii,313,6,0.9808306709265175,logistica,0.25,0.31
+Tyrannus niveigularis,265,4,0.9849056603773585,logistica,0.25,0.25
+Euscarthmus fulviceps,209,1,0.9952153110047847,pocos rechazos,0.25,0.25
+Todirostrum cinereum,162,10,0.9382716049382716,logistica,0.25,0.805
+Herpetotheres cachinnans,142,0,1.0,sin rechazos,0.25,0.25
+Melanopareia elegans,129,1,0.9922480620155039,pocos rechazos,0.25,0.25
+Sporophila peruviana,112,0,1.0,sin rechazos,0.25,0.25
+Camptostoma obsoletum,109,4,0.963302752293578,logistica,0.29000000000000004,0.495
+Zenaida auriculata,93,0,1.0,sin rechazos,0.25,0.25
+Nyctidromus albicollis,70,1,0.9857142857142858,pocos rechazos,0.25,0.25
+Leptotila verreauxi,70,3,0.9571428571428572,logistica,0.25,0.25
+Athene cunicularia,65,0,1.0,sin rechazos,0.25,0.25
+Polioptila plumbea,64,0,1.0,sin rechazos,0.25,0.25
+Glaucidium peruanum,63,0,1.0,sin rechazos,0.25,0.25
+Icterus mesomelas,60,3,0.95,logistica,0.25,0.25
+Pseudelaenia leucospodia,57,1,0.9824561403508771,pocos rechazos,0.25,0.25
+Rhopospina alaudina,51,0,1.0,sin rechazos,0.25,0.25
+Pandion haliaetus,27,0,1.0,sin rechazos,0.25,0.25
+Buteogallus meridionalis,26,0,1.0,sin rechazos,0.25,0.25
+Sicalis flaveola,25,0,1.0,sin rechazos,0.25,0.25
+Dives warczewiczi,26,4,0.8461538461538461,logistica,0.34,0.4
+Saltator striatipectus,22,3,0.8636363636363636,logistica,,
+Lepidocolaptes souleyetii,15,0,1.0,sin rechazos,0.25,0.25
+Momotus subrufescens,16,1,0.9375,pocos rechazos,0.25,0.25
