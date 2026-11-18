@@ -75,18 +75,21 @@ CONF_ROLE = int(Qt.UserRole) + 1
 
 SOURCE_LABELS = {
     "local": "CONDESAN",
+    "local_revisar": "CONDESAN · revisar",
     "custom": "Perfil",
     "birdnet_global": "BirdNET global",
     "anomaly": "Anomalía",
 }
 SOURCE_STYLES = {  # (texto, fondo)
     "local": ("#0F5257", "#DDF4F1"),
+    "local_revisar": ("#7C2D12", "#FDE9D9"),
     "custom": ("#14532D", "#E3F5E8"),
     "birdnet_global": ("#1D4ED8", "#E6EEFF"),
     "anomaly": ("#92400E", "#FFF1DB"),
 }
 SOURCE_TIPS = {
     "local": "Clasificador local CONDESAN: BirdNET restringido a especies locales con umbral calibrado por especie.",
+    "local_revisar": "Detección local que el verificador considera dudosa: no se parece a las validadas de su especie. Conviene escucharla antes de aceptarla.",
     "custom": "Especie de tu biblioteca de perfiles (similitud coseno).",
     "birdnet_global": "Detección de BirdNET global (6 522 especies).",
     "anomaly": "Evento que BirdNET detecta pero no coincide con tus perfiles (posible especie nueva).",

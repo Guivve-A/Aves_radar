@@ -43,12 +43,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from .. import config
 from ..embeddings import flat_sigmoid
 from . import data as D
 from . import protocol as PR
 from .backbone import CUT_TENSORS, BirdNETTop
-from .train_heads import RESULTS, Mixtures
+from .mixtures import Mixtures
 
+RESULTS = config.RESULTS_DIR / "deep"
 CACHE_DIR = D.DEEP_DIR / "maps"
 HEAD_RUNGS = ("lineal", "mlp")
 DEEP_RUNGS = {"post": ("g44", ("post", "classifier")), "b43": ("g42", ("b43", "b44", "post", "classifier")), "b4": ("f3", ("b41", "b42", "b43", "b44", "post", "classifier"))}
@@ -63,11 +65,17 @@ HEAD_GRID = {
     "d100": {"lr": 2e-4, "head_decay": 100.0, "lam_easy": 1.0},
 }
 # Capas convolucionales: paso relativo y decaimiento desacoplado hacia los pesos de BirdNET.
+# La rejilla inicial tenia las tres primeras. En la primera pasada de POST_CONV el pliegue interno eligio "agresivo"
+# en 4 de 5 pliegues (el borde de la rejilla), asi que se amplio con dos configuraciones mas libres. La decision se tomo
+# solo con los pliegues internos: las predicciones de esa pasada sobre los pliegues de prueba se descartaron sin evaluarse.
 DEEP_GRID = {
     "muy_prudente": {"rho": 1e-4, "decay": 30.0},
     "prudente": {"rho": 3e-4, "decay": 10.0},
     "agresivo": {"rho": 1e-3, "decay": 3.0},
+    "muy_agresivo": {"rho": 3e-3, "decay": 1.0},
+    "libre": {"rho": 1e-2, "decay": 0.3},
 }
+DEEP_STEPS = 500                                 # los mismos pasos en el pliegue interno y en el ajuste final
 TRAIN_CAP_STRONG, TRAIN_CAP_WEAK = 12.0, 6.0     # atenuacion maxima de una mezcla usada como positivo al entrenar
 
 
@@ -84,6 +92,7 @@ class RAConfig:
     lam_easy: float = 1.0
     labels: str = "review"                 # review | strict (ablacion: lo no validado es negativo)
     crossfades: bool = True                # False = ablacion sin mezclas
+    mix_negatives: bool = False            # True = variante: falsas alarmas certificadas de las mezclas como negativos
     rho: float = 3e-4                      # paso relativo de las capas convolucionales
     decay: float = 10.0                    # decaimiento desacoplado hacia BirdNET (capas convolucionales)
     seed: int = 42
@@ -123,7 +132,7 @@ class DeltaHead(nn.Module):
 class Targets:
     """Objetivo y mascaras por par, para ventanas reales y para mezclas."""
 
-    def __init__(self, data: D.DeepData, cat: np.ndarray, mix: Mixtures | None, labels: str = "review"):
+    def __init__(self, data: D.DeepData, cat: np.ndarray, mix: Mixtures | None, labels: str = "review", mix_negatives: bool = False):
         s0 = flat_sigmoid(data.logit).astype(np.float32)
         self.T = np.where(cat == PR.P, 1.0, np.where(cat == PR.H, 0.0, s0)).astype(np.float32)
         self.sup = (cat == PR.P) | (cat == PR.H)
@@ -141,6 +150,15 @@ class Targets:
             self.sup_mix = is_pos & (cat[src] == PR.P) & (att <= cap)
             self.easy_mix = (sm < PR.SILENT) & (cat[src] == PR.E) & (cat[bg] == PR.E)
             self.T_mix = np.where(self.sup_mix, 1.0, sm).astype(np.float32)
+            # La especie calla en los dos ingredientes y aun asi BirdNET la puntua >= 0,05 en la mezcla: sumar dos audios
+            # no crea un canto, asi que es una falsa alarma tan fiable como un negativo facil. Son los unicos negativos
+            # que existen en la zona gris. Solo se usan en la variante ``mix_negatives``.
+            self.neg_mix = (sm >= PR.SILENT) & (cat[src] == PR.E) & (cat[bg] == PR.E)
+            if mix_negatives:
+                self.T_mix[self.neg_mix] = 0.0
+                self.sup_all_mix = self.sup_mix | self.neg_mix
+            else:
+                self.sup_all_mix = self.sup_mix
 
 
 class Sampler:
@@ -165,6 +183,7 @@ class Sampler:
             m = np.array([len(v) for v in self.xpos], dtype=np.float64)
             self.p_xpos = np.sqrt(m) / max(np.sqrt(m).sum(), 1e-12)
             self.xneg = np.flatnonzero((mix.kind == "bg_train") & inside[mix.src])
+            self.xcert = np.flatnonzero(np.isin(mix.kind, ("train", "bg_train")) & inside[mix.src] & targets.neg_mix.any(axis=1)) if cfg.mix_negatives else np.zeros(0, np.int64)
 
     def batch(self) -> tuple[np.ndarray, np.ndarray]:
         """Indices de ventanas reales y de mezclas del lote."""
@@ -182,6 +201,8 @@ class Sampler:
             mixes += [int(rng.choice(self.xpos[k])) for k in rng.choice(len(self.xpos), size=n_xp, p=self.p_xpos)]
         if n_xn and len(self.xneg):
             mixes += list(rng.choice(self.xneg, size=n_xn))
+        if n_xn and len(self.xcert):                 # variante: tantas mezclas con una falsa alarma certificada como mezclas de fondo
+            mixes += list(rng.choice(self.xcert, size=n_xn))
         return np.asarray(real, dtype=np.int64), np.asarray(mixes, dtype=np.int64)
 
 
@@ -304,8 +325,8 @@ def make_model(cfg: RAConfig, data: D.DeepData, fit_rows: np.ndarray):
         params = [model.params[k] for k in by_group[g] if k in model.relative]
         if not params:
             continue
-        if g == "classifier":
-            param_groups.append({"params": params, "lr": 1e-3, "weight_decay": 3.0})
+        if g == "classifier":                       # las filas del clasificador siguen la misma region de confianza
+            param_groups.append({"params": params, "lr": cfg.rho, "weight_decay": cfg.decay})
         else:
             param_groups.append({"params": params, "lr": cfg.rho * LAYER_RATE[g], "weight_decay": cfg.decay})
     return model, torch.optim.AdamW(param_groups, lr=cfg.rho)
@@ -327,7 +348,7 @@ def predict(model, feats: Features, rows: np.ndarray, mixed: bool = False, batch
 
 def train(cfg: RAConfig, data: D.DeepData, cat: np.ndarray, mix: Mixtures | None, feats: Features, fit_rows: np.ndarray, targets: Targets | None = None):
     torch.manual_seed(cfg.seed)
-    targets = targets or Targets(data, cat, mix, cfg.labels)
+    targets = targets or Targets(data, cat, mix, cfg.labels, cfg.mix_negatives)
     sampler = Sampler(data, cat, targets, mix, fit_rows, cfg)
     model, opt = make_model(cfg, data, fit_rows)
     head = cfg.rung in HEAD_RUNGS
@@ -345,7 +366,7 @@ def train(cfg: RAConfig, data: D.DeepData, cat: np.ndarray, mix: Mixtures | None
             xs.append(feats.mixed(mixes))
             z0s.append(mix.logit[mixes])
             T.append(targets.T_mix[mixes])
-            sup.append(targets.sup_mix[mixes])
+            sup.append(targets.sup_all_mix[mixes])
             easy.append(targets.easy_mix[mixes])
         x = torch.cat(xs)
         Tt = torch.from_numpy(np.concatenate(T))
@@ -375,19 +396,7 @@ def train(cfg: RAConfig, data: D.DeepData, cat: np.ndarray, mix: Mixtures | None
 # --------------------------------------------------------------------------- #
 # Seleccion anidada y validacion cruzada
 # --------------------------------------------------------------------------- #
-def clean_map(data: D.DeepData, cat: np.ndarray, scores: np.ndarray, rows: np.ndarray) -> float:
-    """mAP limpia ponderada sobre ``rows`` (``scores`` alineado con ``rows``)."""
-    from .metrics import weighted_ap
-
-    w = data.weight[rows].astype(np.float64)
-    aps = []
-    for k in range(cat.shape[1]):
-        c = cat[rows, k]
-        keep = np.isin(c, (PR.P, PR.H, PR.R0, PR.E))
-        y = (c[keep] == PR.P).astype(np.float64)
-        if y.sum() > 0:
-            aps.append(weighted_ap(y, scores[keep, k].astype(np.float64), w[keep]))
-    return float(np.mean(aps)) if aps else float("nan")
+clean_map = PR.clean_map
 
 
 class InnerJudge:
@@ -433,10 +442,10 @@ def cross_validate(rung: str, data, cat, mix, folds: np.ndarray, picked_by_fold:
     feats = Features(data, mix, rung)
     head = rung in HEAD_RUNGS
     grid = HEAD_GRID if head else DEEP_GRID
-    base = RAConfig(rung=rung) if head else RAConfig(rung=rung, steps=1000, batch=(21, 2, 12, 3, 26), warmup=50, ema=0.99)
+    base = RAConfig(rung=rung) if head else RAConfig(rung=rung, steps=DEEP_STEPS, batch=(21, 2, 12, 3, 26), warmup=50, ema=0.99)
     if variant:
         base = replace(base, **variant)
-    targets = Targets(data, cat, mix, base.labels)
+    targets = Targets(data, cat, mix, base.labels, base.mix_negatives)
     oof = np.zeros(data.Y.shape, np.float32)
     oof_mix = np.full(mix.logit.shape, np.nan, np.float32) if mix is not None else None
     info = {"folds": []}
@@ -453,8 +462,7 @@ def cross_validate(rung: str, data, cat, mix, folds: np.ndarray, picked_by_fold:
             judge = InnerJudge(data, cat, mix, inner_val)
             results = {}
             for label, params in grid.items():
-                inner_cfg = replace(base, **params) if head else replace(base, **params, steps=400)
-                m, _ = train(inner_cfg, data, cat, mix, feats, inner_fit, targets)
+                m, _ = train(replace(base, **params), data, cat, mix, feats, inner_fit, targets)
                 results[label] = judge.score(m, feats)
             pick = choose(results)
             fold_info["inner"] = results
@@ -473,13 +481,17 @@ def cross_validate(rung: str, data, cat, mix, folds: np.ndarray, picked_by_fold:
             if "inner" in fold_info:
                 print("     interno:", {k: (round(v["S"], 4), round(v["clean_map"], 4), v["feasible"]) for k, v in fold_info["inner"].items()}, "BirdNET:", (round(judge.s0, 4), round(judge.map0, 4)), flush=True)
     info["config"] = asdict(base)
+    if mix is not None:
+        info["mixture_negatives_available"] = int(targets.neg_mix[np.isin(mix.kind, ("train", "bg_train"))].sum())
     return oof, oof_mix, info
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--rungs", default="lineal,mlp")
-    parser.add_argument("--ablations", action="store_true", help="Ablaciones del modelo principal: etiquetas estrictas, sin mezclas y otra semilla.")
+    parser.add_argument("--ablations", nargs="?", const="mlp_estricto,mlp_sin_mezclas,mlp_semilla2", default=None,
+                        help="Variantes del modelo principal con la configuracion que eligio cada pliegue: etiquetas estrictas, sin mezclas, otra semilla "
+                             "(por defecto las tres) o mlp_neg_mezcla (negativos certificados de las mezclas).")
     parser.add_argument("--cache", action="store_true", help="Solo calcula los mapas g42/g44.")
     parser.add_argument("--threads", type=int, default=4)
     args = parser.parse_args()
@@ -490,8 +502,8 @@ def main() -> None:
         build_map_cache(data, args.threads)
         return
     cat = PR.categories(data)
-    folds = np.load(D.DEEP_DIR / "folds.npy")
-    mix = Mixtures(data)
+    folds = PR.load_folds(data, cat, D.DEEP_DIR / "folds.npy")
+    mix = Mixtures()
     RESULTS.mkdir(parents=True, exist_ok=True)
     out_path = D.DEEP_DIR / "oof_ra.npz"
     store = dict(np.load(out_path)) if out_path.exists() else {}
@@ -515,9 +527,10 @@ def main() -> None:
         if "mlp" not in infos:
             raise SystemExit("Las ablaciones necesitan el modelo principal (mlp) ya entrenado.")
         picked = {int(fi["fold"]): fi["picked"] for fi in infos["mlp"]["folds"]}
-        for name, variant in (("mlp_estricto", {"labels": "strict"}), ("mlp_sin_mezclas", {"crossfades": False}), ("mlp_semilla2", {"seed": 43})):
+        variants = {"mlp_estricto": {"labels": "strict"}, "mlp_sin_mezclas": {"crossfades": False}, "mlp_semilla2": {"seed": 43}, "mlp_neg_mezcla": {"mix_negatives": True}}
+        for name in [a for a in args.ablations.split(",") if a]:
             t0 = time.time()
-            oof, oof_mix, info = cross_validate("mlp", data, cat, mix, folds, picked_by_fold=picked, variant=variant, name=name)
+            oof, oof_mix, info = cross_validate("mlp", data, cat, mix, folds, picked_by_fold=picked, variant=variants[name], name=name)
             save(name, oof, oof_mix, info)
             print(f"{name} listo en {time.time() - t0:.0f} s", flush=True)
 

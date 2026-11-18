@@ -1,0 +1,216 @@
+{
+  "methods": [
+    "prototipos",
+    "lineal_v1",
+    "lineal"
+  ],
+  "configs": [
+    {
+      "lr": 0.002,
+      "weight_decay": 0.01,
+      "epochs": 60,
+      "batch_size": 512,
+      "warmup": 0.05,
+      "ema": 0.998,
+      "pos_weight_power": 0.5,
+      "pos_weight_cap": 30.0,
+      "candidates": "ignore",
+      "candidate_threshold": 0.1,
+      "hard_negative_weight": 20.0,
+      "use_sampling_weights": true,
+      "patience": 60,
+      "seed": 0,
+      "l2_input": false
+    },
+    {
+      "lr": 0.002,
+      "weight_decay": 0.01,
+      "epochs": 60,
+      "batch_size": 512,
+      "warmup": 0.05,
+      "ema": 0.998,
+      "pos_weight_power": 0.5,
+      "pos_weight_cap": 30.0,
+      "candidates": "ignore",
+      "candidate_threshold": 0.1,
+      "hard_negative_weight": 20.0,
+      "use_sampling_weights": true,
+      "patience": 60,
+      "seed": 0,
+      "l2_input": true
+    }
+  ],
+  "fold_info": {
+    "prototipos": [
+      {},
+      {},
+      {},
+      {},
+      {}
+    ],
+    "lineal_v1": [
+      {
+        "best_epoch": 3
+      },
+      {
+        "best_epoch": 11
+      },
+      {
+        "best_epoch": 5
+      },
+      {
+        "best_epoch": 11
+      },
+      {
+        "best_epoch": 3
+      }
+    ],
+    "lineal": [
+      {
+        "best_epoch": 4,
+        "config": 1,
+        "l2_input": true,
+        "val": 0.8082613982778766,
+        "val_start": 0.008022497807744187
+      },
+      {
+        "best_epoch": 46,
+        "config": 1,
+        "l2_input": true,
+        "val": 0.8745053105595716,
+        "val_start": 0.011279878670384854
+      },
+      {
+        "best_epoch": 4,
+        "config": 1,
+        "l2_input": true,
+        "val": 0.7764856357789812,
+        "val_start": 0.008315999643597987
+      },
+      {
+        "best_epoch": 23,
+        "config": 1,
+        "l2_input": true,
+        "val": 0.7639397641274649,
+        "val_start": 0.0026445434917228604
+      },
+      {
+        "best_epoch": 31,
+        "config": 0,
+        "l2_input": false,
+        "val": 0.791523543380469,
+        "val_start": 0.010315027171117572
+      }
+    ]
+  },
+  "windows": 54361,
+  "elapsed_s": 120.3,
+  "verifier": {
+    "name": "Verificador local CONDESAN (sonda lineal sobre el embedding de BirdNET V2.4)",
+    "species": [
+      "Mimus longicaudatus",
+      "Columbina cruziana",
+      "Nyctidromus anthonyi",
+      "Zenaida meloda",
+      "Leistes bellicosus",
+      "Forpus coelestis",
+      "Cantorchilus superciliaris",
+      "Pyrocephalus rubinus",
+      "Synallaxis stictothorax",
+      "Myiodynastes bairdii",
+      "Tyrannus niveigularis",
+      "Euscarthmus fulviceps",
+      "Todirostrum cinereum",
+      "Herpetotheres cachinnans",
+      "Melanopareia elegans",
+      "Sporophila peruviana",
+      "Camptostoma obsoletum",
+      "Zenaida auriculata",
+      "Glaucidium peruanum",
+      "Nyctidromus albicollis",
+      "Pseudelaenia leucospodia",
+      "Leptotila verreauxi",
+      "Polioptila plumbea",
+      "Athene cunicularia",
+      "Icterus mesomelas",
+      "Rhopospina alaudina",
+      "Buteogallus meridionalis",
+      "Pandion haliaetus",
+      "Sicalis flaveola",
+      "Dives warczewiczi",
+      "Saltator striatipectus",
+      "Momotus subrufescens",
+      "Lepidocolaptes souleyetii"
+    ],
+    "l2_input": true,
+    "retention": 0.95,
+    "min_positives": 20,
+    "train_positives": [
+      1763,
+      736,
+      465,
+      446,
+      323,
+      298,
+      326,
+      415,
+      145,
+      273,
+      261,
+      200,
+      149,
+      141,
+      128,
+      112,
+      105,
+      93,
+      62,
+      69,
+      56,
+      67,
+      62,
+      65,
+      57,
+      51,
+      25,
+      27,
+      25,
+      21,
+      19,
+      15,
+      12
+    ],
+    "training": {
+      "best_epoch": 60,
+      "config": 1,
+      "l2_input": true,
+      "val": 0.7565439285465495,
+      "val_start": 0.008187808420421055,
+      "recordings": 3133,
+      "windows": 54361
+    },
+    "out_of_sample": {
+      "validadas": {
+        "pares": 7012,
+        "marcadas": 346,
+        "fraccion_ponderada": 0.04828429645003987
+      },
+      "rechazadas": {
+        "pares": 71,
+        "marcadas": 37,
+        "fraccion_ponderada": 0.5211267605633803
+      },
+      "sin_revisar": {
+        "pares": 1657,
+        "marcadas": 125,
+        "fraccion_ponderada": 0.07128580929902252
+      },
+      "modelo_exportado_en_validacion_interna": {
+        "validadas": 978,
+        "marcadas": 106,
+        "fraccion_ponderada": 0.075824370173475
+      }
+    },
+    "license_note": "Sonda entrenada sobre embeddings de BirdNET V2.4 (CC BY-NC-SA 4.0): uso no comercial, atribucion y compartir igual."
+  }
+}

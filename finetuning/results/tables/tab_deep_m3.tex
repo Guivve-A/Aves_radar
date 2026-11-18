@@ -1,0 +1,18 @@
+\begin{tabular}{lcccccc}
+\toprule
+Modelo & original & $-$6\,dB & $-$12\,dB & $-$18\,dB & $-$24\,dB & 1\,\% f.\,a.\\
+\midrule
+BirdNET V2.4 (sin ajuste) & 100{,}0 & 24{,}5 & 10{,}7 & 4{,}3 & 2{,}0 & 39{,}7\\
+\addlinespace
+Correcci\'on lineal del embedding & 80{,}2 & 25{,}7 & 11{,}7 & 4{,}7 & 2{,}0 & 44{,}3\\
+Correcci\'on MLP residual del embedding & 79{,}0 & 25{,}7 & 12{,}0 & 5{,}0 & 2{,}5 & 43{,}8\\
+POST\_CONV afinada & 78{,}2 & 25{,}5 & 11{,}9 & 5{,}0 & 2{,}4 & 44{,}2\\
+Sub-bloques 4-3 y 4-4 + POST\_CONV & 80{,}4 & 26{,}2 & 12{,}5 & 5{,}1 & 2{,}2 & 43{,}8\\
+\addlinespace
+\multicolumn{7}{l}{\emph{Correcci\'on acotada}}\\
+Correcci\'on lineal & 97{,}7 & 24{,}5 & 10{,}9 & 4{,}4 & 2{,}0 & 41{,}3\\
+Correcci\'on MLP residual & 97{,}0 & 24{,}5 & 10{,}8 & 4{,}3 & 2{,}0 & 40{,}7\\
+POST\_CONV afinada & 98{,}4 & 24{,}2 & 10{,}8 & 4{,}4 & 2{,}0 & 39{,}8\\
+Sub-bloques 4-3 y 4-4 + POST\_CONV & 99{,}2 & 24{,}6 & 10{,}7 & 4{,}3 & 2{,}0 & 39{,}8\\
+\bottomrule
+\end{tabular}

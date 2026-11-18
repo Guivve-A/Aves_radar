@@ -1,0 +1,25 @@
+\begin{tabular}{lcccccccc}
+\toprule
+ & \multicolumn{2}{c}{M1: mAP limpia} & & \multicolumn{3}{c}{M3: exhaustividad (\%)} & \multicolumn{2}{c}{Reglas}\\
+\cmidrule(lr){2-3}\cmidrule(lr){5-7}\cmidrule(lr){8-9}
+Modelo & valor & $\Delta$ [IC 95\,\%] & SLI & original & $S$ & $\Delta S$ [IC 95\,\%] & D1 & D3\\
+\midrule
+BirdNET V2.4 (sin ajuste) & 0{,}984 & -- & 0{,}50 & 100{,}0 & 10{,}4 & -- & -- & --\\
+\addlinespace
+\multicolumn{9}{l}{\emph{Correcci\'on libre}}\\
+Correcci\'on lineal del embedding & 0{,}954 & $-$0{,}030 [$-$0{,}041; $-$0{,}001] & 0{,}55 & 80{,}2 & 11{,}0 & +0{,}6 [+0{,}2; +1{,}4] & no & s\'i\\
+Correcci\'on MLP residual del embedding & 0{,}938 & $-$0{,}046 [$-$0{,}053; $-$0{,}004] & 0{,}52 & 79{,}0 & 11{,}3 & +0{,}9 [+0{,}4; +1{,}8] & no & s\'i\\
+\quad sin mezclas atenuadas & 0{,}974 & $-$0{,}010 [$-$0{,}012; +0{,}012] & 0{,}54 & 83{,}4 & 10{,}3 & $-$0{,}1 [$-$0{,}6; +0{,}4] & no & no\\
+\quad con etiquetas estrictas & 0{,}926 & $-$0{,}058 [$-$0{,}078; +0{,}000] & 0{,}66 & 77{,}7 & 11{,}5 & +1{,}1 [+0{,}6; +1{,}9] & no & s\'i\\
+\quad otra semilla & 0{,}943 & $-$0{,}041 [$-$0{,}046; $-$0{,}000] & 0{,}51 & 77{,}6 & 11{,}1 & +0{,}7 [+0{,}3; +1{,}6] & no & s\'i\\
+\quad con negativos de mezcla & 0{,}941 & $-$0{,}044 [$-$0{,}049; $-$0{,}003] & 0{,}54 & 78{,}9 & 11{,}1 & +0{,}8 [+0{,}4; +1{,}6] & no & s\'i\\
+POST\_CONV afinada & 0{,}947 & $-$0{,}038 [$-$0{,}047; $-$0{,}009] & 0{,}56 & 78{,}2 & 11{,}2 & +0{,}8 [+0{,}3; +1{,}6] & no & s\'i\\
+Sub-bloques 4-3 y 4-4 + POST\_CONV & 0{,}958 & $-$0{,}026 [$-$0{,}039; $-$0{,}006] & 0{,}58 & 80{,}4 & 11{,}5 & +1{,}1 [+0{,}6; +1{,}9] & no & s\'i\\
+\addlinespace
+\multicolumn{9}{l}{\emph{Correcci\'on acotada a $\pm 0{,}9$ logits (a\~nadida despu\'es de ver los resultados de las cabezas)}}\\
+Correcci\'on lineal & 0{,}984 & $-$0{,}000 [$-$0{,}002; +0{,}009] & 0{,}51 & 97{,}7 & 10{,}4 & +0{,}1 [$-$0{,}0; +0{,}2] & s\'i & no\\
+Correcci\'on MLP residual & 0{,}982 & $-$0{,}002 [$-$0{,}003; +0{,}001] & 0{,}48 & 97{,}0 & 10{,}4 & +0{,}0 [$-$0{,}0; +0{,}2] & s\'i & no\\
+POST\_CONV afinada & 0{,}982 & $-$0{,}002 [$-$0{,}002; +0{,}001] & 0{,}48 & 98{,}4 & 10{,}4 & +0{,}0 [$-$0{,}1; +0{,}1] & s\'i & no\\
+Sub-bloques 4-3 y 4-4 + POST\_CONV & 0{,}984 & $-$0{,}000 [$-$0{,}001; +0{,}001] & 0{,}50 & 99{,}2 & 10{,}4 & +0{,}0 [$-$0{,}0; +0{,}1] & s\'i & no\\
+\bottomrule
+\end{tabular}

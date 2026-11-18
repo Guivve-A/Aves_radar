@@ -38,3 +38,6 @@ docs/**/*.fdb_latexmk
 docs/**/*.synctex.gz
 docs/**/*.lof
 docs/**/*.lot
+
+# Verificador local: sonda entrenada con datos del proyecto (se entrega aparte, no se versiona)
+local_models/**/verificador_local.npz

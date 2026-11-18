@@ -13,7 +13,7 @@ estuviera mas lejos. Al mezclar solo dentro de una sesion, cada mezcla pertenece
 a un unico pliegue de la validacion cruzada (los pliegues se agrupan por sesion)
 y no hay fuga de informacion entre entrenamiento y prueba.
 
-Dos familias, con ventanas de fondo distintas:
+Dos familias; para un mismo canto, con ventanas de fondo distintas:
     test    cada positivo x atenuaciones fijas (0 = original, 6, 12, 18, 24 dB)
     train   cada positivo x ``k`` atenuaciones aleatorias en [3, 24] dB (aumento de datos)
 Ademas, mezclas fondo + fondo como negativos procesados igual que los positivos.
@@ -156,6 +156,20 @@ def load_features(maps: bool = True) -> dict[str, np.ndarray]:
     if (MIX_DIR / "f2.npy").exists():
         out["f2"] = np.load(MIX_DIR / "f2.npy", mmap_mode=mode)
     return out
+
+
+class Mixtures:
+    """Banco de mezclas ya extraido: plan, embedding y logits de BirdNET de cada mezcla."""
+
+    def __init__(self) -> None:
+        self.plan = load_plan()
+        if not np.load(MIX_DIR / "done.npy").all():
+            raise RuntimeError("Faltan mezclas por extraer (python -m finetuning.deep.mixtures --extract).")
+        feats = load_features(maps=True)
+        self.emb = np.asarray(feats["emb"], dtype=np.float32)
+        self.logit = np.asarray(feats["logit"], dtype=np.float32)
+        self.src = self.plan["src"].to_numpy()
+        self.kind = self.plan["kind"].to_numpy()
 
 
 def main() -> None:

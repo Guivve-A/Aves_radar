@@ -84,6 +84,7 @@ python main.py
 - Opcion **Usar clasificador local CONDESAN (BirdNET calibrado)** en Parametros: restringe BirdNET a las 33 especies
   validadas del bosque seco con umbrales calibrados por especie (desactivada por defecto).
 - `finetuning/`: pipeline reproducible (datos, embeddings BirdNET, validacion cruzada por sesion, exportacion).
+- `finetuning/deep/`: segunda fase. Ajuste de las capas convolucionales de BirdNET (PyTorch, CPU), protocolo de evaluacion que tiene en cuenta que detecciones se revisaron, y verificador local opcional (`local_models/condesan/verificador_local.npz`, no versionado): BirdNET propone y una sonda local marca las detecciones dudosas como **CONDESAN · revisar**.
 - Pipeline completo en Google Colab sobre la carpeta de Drive (sin descargarla): `finetuning/colab_pipeline.ipynb` ([abrir en Colab](https://colab.research.google.com/github/Guivve-A/Aves_radar/blob/main/finetuning/colab_pipeline.ipynb)). Genera tambien la hoja de anotacion aleatoria para la evaluacion sin sesgo.
 - Informe con teoria y resultados: `docs/informe_finetuning/informe_finetuning.pdf`.
 - Pestaña **Validación**: carga `TablaFinal.xlsx` y compara cada grabación analizada con las validaciones del equipo (porcentaje de coincidencia, detecciones confirmadas, línea de tiempo por especie). El audio debe estar dentro de la carpeta de su grabadora (`AM001/...`). Para comparar en igualdad de condiciones usa solape 0 s.
@@ -198,6 +199,7 @@ python main.py
 - **Use CONDESAN local classifier (calibrated BirdNET)** option in Parameters: restricts BirdNET to the 33 validated
   dry-forest species with per-species calibrated thresholds (off by default).
 - `finetuning/`: reproducible pipeline (data, BirdNET embeddings, session-grouped cross-validation, export).
+- `finetuning/deep/`: second phase. Fine-tuning of BirdNET's convolutional layers (PyTorch, CPU), an evaluation protocol that accounts for which detections were reviewed, and an optional local verifier (`local_models/condesan/verificador_local.npz`, not versioned): BirdNET proposes and a local probe flags doubtful detections as **CONDESAN · revisar**.
 - Full pipeline on Google Colab, reading the Drive folder in place: `finetuning/colab_pipeline.ipynb` ([open in Colab](https://colab.research.google.com/github/Guivve-A/Aves_radar/blob/main/finetuning/colab_pipeline.ipynb)). It also builds the random annotation sheet for the unbiased evaluation.
 - Report with theory and results (Spanish): `docs/informe_finetuning/informe_finetuning.pdf`.
 - **Validación** tab: load `TablaFinal.xlsx` to compare each analysed recording with the team's validations (agreement percentage, confirmed detections, per-species timeline). Keep audio inside its recorder folder (`AM001/...`); use 0 s overlap for a like-for-like comparison.

@@ -1,0 +1,425 @@
+{
+  "modelo": "b43",
+  "por_especie_y_grupo": 6,
+  "totales": {
+    "nuevas": {
+      "pares": 13612,
+      "estimacion_conjunto_completo": 37463.66627240181,
+      "en_la_lista": 198
+    },
+    "dudosas": {
+      "pares": 125,
+      "estimacion_conjunto_completo": 356.6666624546051,
+      "en_la_lista": 47
+    },
+    "probables": {
+      "pares": 1529,
+      "estimacion_conjunto_completo": 4632.333289861679,
+      "en_la_lista": 78
+    }
+  },
+  "por_especie": {
+    "nuevas": {
+      "Mimus longicaudatus": {
+        "pares": 3687,
+        "estimacion_conjunto_completo": 11972.999865531921
+      },
+      "Columbina cruziana": {
+        "pares": 1076,
+        "estimacion_conjunto_completo": 2718.9999566078186
+      },
+      "Nyctidromus anthonyi": {
+        "pares": 435,
+        "estimacion_conjunto_completo": 2153.999978542328
+      },
+      "Zenaida meloda": {
+        "pares": 1366,
+        "estimacion_conjunto_completo": 4037.3332941532135
+      },
+      "Leistes bellicosus": {
+        "pares": 355,
+        "estimacion_conjunto_completo": 1250.9999823570251
+      },
+      "Forpus coelestis": {
+        "pares": 385,
+        "estimacion_conjunto_completo": 963.33331823349
+      },
+      "Cantorchilus superciliaris": {
+        "pares": 622,
+        "estimacion_conjunto_completo": 1548.3333103656769
+      },
+      "Pyrocephalus rubinus": {
+        "pares": 560,
+        "estimacion_conjunto_completo": 929.6666638851166
+      },
+      "Synallaxis stictothorax": {
+        "pares": 309,
+        "estimacion_conjunto_completo": 771.6666567325592
+      },
+      "Myiodynastes bairdii": {
+        "pares": 373,
+        "estimacion_conjunto_completo": 641.3333263397217
+      },
+      "Tyrannus niveigularis": {
+        "pares": 246,
+        "estimacion_conjunto_completo": 381.6666660308838
+      },
+      "Euscarthmus fulviceps": {
+        "pares": 549,
+        "estimacion_conjunto_completo": 1090.9999959468842
+      },
+      "Todirostrum cinereum": {
+        "pares": 42,
+        "estimacion_conjunto_completo": 80.66666626930237
+      },
+      "Herpetotheres cachinnans": {
+        "pares": 229,
+        "estimacion_conjunto_completo": 486.6666634082794
+      },
+      "Melanopareia elegans": {
+        "pares": 265,
+        "estimacion_conjunto_completo": 650.3333284854889
+      },
+      "Sporophila peruviana": {
+        "pares": 193,
+        "estimacion_conjunto_completo": 331.66666531562805
+      },
+      "Camptostoma obsoletum": {
+        "pares": 77,
+        "estimacion_conjunto_completo": 188.33333230018616
+      },
+      "Zenaida auriculata": {
+        "pares": 463,
+        "estimacion_conjunto_completo": 1049.999993801117
+      },
+      "Glaucidium peruanum": {
+        "pares": 68,
+        "estimacion_conjunto_completo": 147.6666657924652
+      },
+      "Nyctidromus albicollis": {
+        "pares": 185,
+        "estimacion_conjunto_completo": 680.6666574478149
+      },
+      "Pseudelaenia leucospodia": {
+        "pares": 154,
+        "estimacion_conjunto_completo": 258.66666555404663
+      },
+      "Leptotila verreauxi": {
+        "pares": 554,
+        "estimacion_conjunto_completo": 1657.333315372467
+      },
+      "Polioptila plumbea": {
+        "pares": 496,
+        "estimacion_conjunto_completo": 956.666660785675
+      },
+      "Athene cunicularia": {
+        "pares": 37,
+        "estimacion_conjunto_completo": 93.99999928474426
+      },
+      "Icterus mesomelas": {
+        "pares": 344,
+        "estimacion_conjunto_completo": 949.6666555404663
+      },
+      "Rhopospina alaudina": {
+        "pares": 100,
+        "estimacion_conjunto_completo": 290.3333320617676
+      },
+      "Buteogallus meridionalis": {
+        "pares": 87,
+        "estimacion_conjunto_completo": 196.99999809265137
+      },
+      "Pandion haliaetus": {
+        "pares": 58,
+        "estimacion_conjunto_completo": 121.99999904632568
+      },
+      "Sicalis flaveola": {
+        "pares": 26,
+        "estimacion_conjunto_completo": 35.0
+      },
+      "Dives warczewiczi": {
+        "pares": 89,
+        "estimacion_conjunto_completo": 239.3333294391632
+      },
+      "Saltator striatipectus": {
+        "pares": 94,
+        "estimacion_conjunto_completo": 258.33333110809326
+      },
+      "Momotus subrufescens": {
+        "pares": 82,
+        "estimacion_conjunto_completo": 308.3333320617676
+      },
+      "Lepidocolaptes souleyetii": {
+        "pares": 6,
+        "estimacion_conjunto_completo": 19.666666507720947
+      }
+    },
+    "dudosas": {
+      "Mimus longicaudatus": {
+        "pares": 70,
+        "estimacion_conjunto_completo": 213.9999978542328
+      },
+      "Columbina cruziana": {
+        "pares": 10,
+        "estimacion_conjunto_completo": 19.333333015441895
+      },
+      "Nyctidromus anthonyi": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Zenaida meloda": {
+        "pares": 1,
+        "estimacion_conjunto_completo": 10.0
+      },
+      "Leistes bellicosus": {
+        "pares": 1,
+        "estimacion_conjunto_completo": 3.3333332538604736
+      },
+      "Forpus coelestis": {
+        "pares": 2,
+        "estimacion_conjunto_completo": 6.666666507720947
+      },
+      "Cantorchilus superciliaris": {
+        "pares": 1,
+        "estimacion_conjunto_completo": 1.0
+      },
+      "Pyrocephalus rubinus": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Synallaxis stictothorax": {
+        "pares": 1,
+        "estimacion_conjunto_completo": 1.0
+      },
+      "Myiodynastes bairdii": {
+        "pares": 6,
+        "estimacion_conjunto_completo": 10.666666507720947
+      },
+      "Tyrannus niveigularis": {
+        "pares": 1,
+        "estimacion_conjunto_completo": 1.0
+      },
+      "Euscarthmus fulviceps": {
+        "pares": 1,
+        "estimacion_conjunto_completo": 3.3333332538604736
+      },
+      "Todirostrum cinereum": {
+        "pares": 2,
+        "estimacion_conjunto_completo": 2.0
+      },
+      "Herpetotheres cachinnans": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Melanopareia elegans": {
+        "pares": 1,
+        "estimacion_conjunto_completo": 3.3333332538604736
+      },
+      "Sporophila peruviana": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Camptostoma obsoletum": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Zenaida auriculata": {
+        "pares": 1,
+        "estimacion_conjunto_completo": 3.3333332538604736
+      },
+      "Glaucidium peruanum": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Nyctidromus albicollis": {
+        "pares": 8,
+        "estimacion_conjunto_completo": 23.99999976158142
+      },
+      "Pseudelaenia leucospodia": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Leptotila verreauxi": {
+        "pares": 14,
+        "estimacion_conjunto_completo": 34.99999928474426
+      },
+      "Polioptila plumbea": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Athene cunicularia": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Icterus mesomelas": {
+        "pares": 3,
+        "estimacion_conjunto_completo": 7.666666507720947
+      },
+      "Rhopospina alaudina": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Buteogallus meridionalis": {
+        "pares": 1,
+        "estimacion_conjunto_completo": 10.0
+      },
+      "Pandion haliaetus": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Sicalis flaveola": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Dives warczewiczi": {
+        "pares": 1,
+        "estimacion_conjunto_completo": 1.0
+      },
+      "Saltator striatipectus": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Momotus subrufescens": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Lepidocolaptes souleyetii": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      }
+    },
+    "probables": {
+      "Mimus longicaudatus": {
+        "pares": 1096,
+        "estimacion_conjunto_completo": 3408.3333082199097
+      },
+      "Columbina cruziana": {
+        "pares": 66,
+        "estimacion_conjunto_completo": 145.3333306312561
+      },
+      "Nyctidromus anthonyi": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Zenaida meloda": {
+        "pares": 28,
+        "estimacion_conjunto_completo": 85.66666531562805
+      },
+      "Leistes bellicosus": {
+        "pares": 1,
+        "estimacion_conjunto_completo": 10.0
+      },
+      "Forpus coelestis": {
+        "pares": 24,
+        "estimacion_conjunto_completo": 72.99999833106995
+      },
+      "Cantorchilus superciliaris": {
+        "pares": 27,
+        "estimacion_conjunto_completo": 68.99999856948853
+      },
+      "Pyrocephalus rubinus": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Synallaxis stictothorax": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Myiodynastes bairdii": {
+        "pares": 2,
+        "estimacion_conjunto_completo": 6.666666507720947
+      },
+      "Tyrannus niveigularis": {
+        "pares": 38,
+        "estimacion_conjunto_completo": 110.0
+      },
+      "Euscarthmus fulviceps": {
+        "pares": 3,
+        "estimacion_conjunto_completo": 16.666666507720947
+      },
+      "Todirostrum cinereum": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Herpetotheres cachinnans": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Melanopareia elegans": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Sporophila peruviana": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Camptostoma obsoletum": {
+        "pares": 5,
+        "estimacion_conjunto_completo": 36.66666650772095
+      },
+      "Zenaida auriculata": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Glaucidium peruanum": {
+        "pares": 1,
+        "estimacion_conjunto_completo": 10.0
+      },
+      "Nyctidromus albicollis": {
+        "pares": 18,
+        "estimacion_conjunto_completo": 61.999998807907104
+      },
+      "Pseudelaenia leucospodia": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Leptotila verreauxi": {
+        "pares": 193,
+        "estimacion_conjunto_completo": 494.3333249092102
+      },
+      "Polioptila plumbea": {
+        "pares": 1,
+        "estimacion_conjunto_completo": 3.3333332538604736
+      },
+      "Athene cunicularia": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Icterus mesomelas": {
+        "pares": 14,
+        "estimacion_conjunto_completo": 75.33333277702332
+      },
+      "Rhopospina alaudina": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Buteogallus meridionalis": {
+        "pares": 4,
+        "estimacion_conjunto_completo": 10.999999761581421
+      },
+      "Pandion haliaetus": {
+        "pares": 5,
+        "estimacion_conjunto_completo": 7.333333253860474
+      },
+      "Sicalis flaveola": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Dives warczewiczi": {
+        "pares": 3,
+        "estimacion_conjunto_completo": 7.666666507720947
+      },
+      "Saltator striatipectus": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Momotus subrufescens": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      },
+      "Lepidocolaptes souleyetii": {
+        "pares": 0,
+        "estimacion_conjunto_completo": 0.0
+      }
+    }
+  }
+}

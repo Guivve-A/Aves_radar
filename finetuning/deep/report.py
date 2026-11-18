@@ -1,18 +1,14 @@
-"""Evaluacion conjunta, tablas LaTeX y figuras de los experimentos de aprendizaje profundo.
+"""Tablas LaTeX y figuras de la segunda fase (aprendizaje profundo) a partir de ``evaluate_ra``.
 
-Reune las predicciones fuera de muestra de todas las corridas (cabezas, cabezas con
-mezclas y ajuste fino de capas convolucionales), las evalua con el mismo protocolo y
-escribe solo resultados agregados (metricas, intervalos, curvas): nada de audio ni de
+Solo se escriben resultados agregados (metricas, intervalos, curvas): nada de audio ni de
 detecciones individuales.
 
 Uso:
-    python -m finetuning.deep.report            # evaluacion + tablas + figuras
-    python -m finetuning.deep.report --no-eval  # solo tablas y figuras a partir de los CSV
+    python -m finetuning.deep.report
 """
 
 from __future__ import annotations
 
-import argparse
 import json
 
 import matplotlib
@@ -23,71 +19,68 @@ import numpy as np
 import pandas as pd
 
 from .. import config
-from ..embeddings import flat_sigmoid
 from ..report import GRID, INK, INK_2, MUTED  # mismo estilo que el resto del informe
-from . import analysis as A
-from . import data as D
-from . import metrics as M
-from .train_heads import LABELS, RESULTS, Mixtures, evaluate
+from . import protocol as PR
 
+RESULTS = config.RESULTS_DIR / "deep"
 TAB = config.TABLES_DIR
 FIG = config.FIGURES_DIR
 
-# Orden fijo de presentacion y nombres cortos.
-ORDER = [
-    "birdnet",
-    "prototipos",
-    "lineal_v1",
-    "lineal",
-    "mlp",
-    "lineal_mix",
-    "ft_v1",
-    "residual_estricto",
-    "residual",
-    "contexto",
-    "residual_mix",
-    "birdnet_x_lineal",
-    "birdnet_x_lineal_mix",
-    "ft_bloque4",
-    "ft_bloques34",
-]
-SHORT = {
+NAMES = {
     "birdnet": "BirdNET V2.4 (sin ajuste)",
+    "dos_etapas": "BirdNET propone, sonda local verifica",
+    "verificador": "BirdNET propone, verificador de 5 variables ordena",
+    "lineal": "Correcci\\'on lineal del embedding",
+    "mlp": "Correcci\\'on MLP residual del embedding",
+    "mlp_sin_mezclas": "\\quad sin mezclas atenuadas",
+    "mlp_estricto": "\\quad con etiquetas estrictas",
+    "mlp_semilla2": "\\quad otra semilla",
+    "mlp_neg_mezcla": "\\quad con negativos de mezcla",
+    "post": "POST\\_CONV afinada",
+    "b43": "Sub-bloques 4-3 y 4-4 + POST\\_CONV",
+    "b4": "Bloque 4 completo",
+    "lineal_acotado": "Correcci\\'on lineal",
+    "mlp_acotado": "Correcci\\'on MLP residual",
+    "post_acotado": "POST\\_CONV afinada",
+    "b43_acotado": "Sub-bloques 4-3 y 4-4 + POST\\_CONV",
+    "b4_acotado": "Bloque 4 completo",
     "prototipos": "Prototipos coseno (app)",
     "lineal_v1": "Sonda lineal, receta anterior",
-    "lineal": "Sonda lineal, receta nueva",
-    "mlp": "MLP 2$\\times$512, receta nueva",
-    "lineal_mix": "Sonda lineal + mezclas",
-    "ft_v1": "\\'Ultima capa afinada (L2-SP), anterior",
-    "residual_estricto": "Adaptador residual (candidatos = negativos)",
-    "residual": "Adaptador residual",
-    "contexto": "Adaptador residual + contexto (GRU)",
-    "residual_mix": "Adaptador residual + mezclas",
-    "birdnet_x_lineal": "BirdNET $\\times$ sonda local",
-    "birdnet_x_lineal_mix": "BirdNET $\\times$ sonda local con mezclas",
-    "ft_bloque4": "Bloque 4 afinado (capas conv.)",
-    "ft_bloques34": "Bloques 3 y 4 afinados (capas conv.)",
+    "lineal_desde_cero": "Sonda lineal, receta nueva",
 }
-PLAIN = {k: v.replace("$\\times$", "x").replace("\\'U", "Ú") for k, v in SHORT.items()}
-FAMILY = {
-    "birdnet": "Referencia",
-    "prototipos": "Desde cero",
-    "lineal_v1": "Desde cero",
-    "lineal": "Desde cero",
-    "mlp": "Desde cero",
-    "lineal_mix": "Desde cero",
-    "ft_v1": "Anclados a BirdNET",
-    "residual_estricto": "Anclados a BirdNET",
-    "residual": "Anclados a BirdNET",
-    "contexto": "Anclados a BirdNET",
-    "residual_mix": "Anclados a BirdNET",
-    "birdnet_x_lineal": "Conjuntos",
-    "birdnet_x_lineal_mix": "Conjuntos",
-    "ft_bloque4": "Capas convolucionales",
-    "ft_bloques34": "Capas convolucionales",
+PLAIN = {
+    "birdnet": "BirdNET V2.4 (sin ajuste)",
+    "dos_etapas": "BirdNET propone, sonda local verifica",
+    "verificador": "BirdNET propone, verificador de 5 variables",
+    "lineal": "Lineal",
+    "mlp": "MLP",
+    "mlp_sin_mezclas": "MLP sin mezclas",
+    "mlp_estricto": "MLP, etiquetas estrictas",
+    "mlp_semilla2": "MLP, otra semilla",
+    "mlp_neg_mezcla": "MLP con negativos de mezcla",
+    "post": "POST_CONV",
+    "b43": "Sub-bloques 4-3/4-4",
+    "b4": "Bloque 4",
+    "lineal_acotado": "Lineal acotada",
+    "mlp_acotado": "MLP acotada",
+    "post_acotado": "POST_CONV acotada",
+    "b43_acotado": "Sub-bloques 4-3/4-4 acotada",
+    "b4_acotado": "Bloque 4 acotada",
+    "prototipos": "Prototipos coseno (app)",
+    "lineal_v1": "Sonda lineal, receta anterior",
+    "lineal_desde_cero": "Sonda lineal, receta nueva",
 }
-# Paleta categorica validada (primeras ranuras) + gris de referencia para BirdNET.
-C_REF, C1, C2, C3 = INK_2, "#2a78d6", "#eb6834", "#1baf7a"
+MACRO = {
+    "birdnet": "Birdnet", "dos_etapas": "TwoStage", "verificador": "Verifier", "lineal": "Linear", "mlp": "Mlp", "mlp_sin_mezclas": "MlpNoMix",
+    "mlp_estricto": "MlpStrict", "mlp_semilla2": "MlpSeed", "mlp_neg_mezcla": "MlpNeg", "post": "Post", "b43": "Deep", "b4": "Block", "lineal_acotado": "LinearB",
+    "mlp_acotado": "MlpB", "post_acotado": "PostB", "b43_acotado": "DeepB", "b4_acotado": "BlockB", "prototipos": "Proto",
+    "lineal_v1": "ProbeOld", "lineal_desde_cero": "ProbeNew",
+}
+FREE = ["lineal", "mlp", "mlp_sin_mezclas", "mlp_estricto", "mlp_semilla2", "mlp_neg_mezcla", "post", "b43", "b4"]
+BOUNDED = ["lineal_acotado", "mlp_acotado", "post_acotado", "b43_acotado", "b4_acotado"]
+VERIFIERS = ["birdnet", "dos_etapas", "verificador", "prototipos", "lineal_v1", "lineal_desde_cero"]
+GRID_NAMES = {"libre": "libre", "d10": "d10", "d10_l3": "d10+", "d30": "d30", "d100": "d100", "muy_prudente": "muy prudente", "prudente": "prudente", "agresivo": "agresiva", "muy_agresivo": "muy agresiva"}
+C_REF, C1, C2, C3 = INK_2, "#2a78d6", "#eb6834", "#1baf7a"   # gris de referencia + tres primeras ranuras validadas
 SURFACE = "#ffffff"
 
 
@@ -107,230 +100,277 @@ def interval(lo, hi, nd: int = 3) -> str:
     return f"[{signed(lo, nd)}; {signed(hi, nd)}]"
 
 
-# --------------------------------------------------------------------------- #
-# Evaluacion conjunta
-# --------------------------------------------------------------------------- #
-def collect(data: D.DeepData, mix: Mixtures | None):
-    """Predicciones fuera de muestra de todas las corridas disponibles."""
-    oof: dict[str, np.ndarray] = {}
-    oof_mix: dict[str, np.ndarray] = {}
-    for tag in ("heads", "mix"):
-        path = D.DEEP_DIR / f"oof_{tag}.npz"
-        if not path.exists():
-            continue
-        z = np.load(path)
-        for key in z.files:
-            if key.startswith("oof_"):
-                oof[key[4:]] = z[key]          # la corrida con mezclas prevalece (mismo modelo, con puntuaciones de mezclas)
-            elif key.startswith("mix_"):
-                oof_mix[key[4:]] = z[key]
-    for path in sorted(D.DEEP_DIR.glob("oof_ft_*.npz")):
-        if path.stem.endswith("_partial"):
-            continue
-        z = np.load(path)
-        name = path.stem[4:]
-        oof[name] = z["oof"]
-        if "mix" in z.files:
-            oof_mix[name] = z["mix"]
-    if mix is not None and "birdnet" not in oof_mix:
-        rows = mix.test_rows(np.arange(len(data.Y)))
-        bn = np.full((len(mix.plan), data.Y.shape[1]), np.nan, np.float32)
-        bn[rows] = flat_sigmoid(mix.logit[rows])
-        oof_mix["birdnet"] = bn
-    oof.setdefault("birdnet", flat_sigmoid(data.logit))
-    ordered = {m: oof[m] for m in ORDER if m in oof} | {m: v for m, v in oof.items() if m not in ORDER}
-    return ordered, {m: oof_mix[m] for m in ordered if m in oof_mix}
+def thin(v) -> str:
+    return f"{int(round(v)):,}".replace(",", "\\,")
 
 
-def final_evaluation(reps: int = 500) -> None:
-    data = D.load(maps=False)
-    mix = Mixtures(data) if (D.DEEP_DIR / "mix" / "done.npy").exists() else None
-    oof, oof_mix = collect(data, mix)
-    for m in oof:
-        LABELS.setdefault(m, PLAIN.get(m, m))
-    evaluate(data, oof, oof_mix, mix, reps=reps, tag="final")
-    summary, detail = A.new_detections(data, oof)
-    summary.to_csv(RESULTS / "new_detections_final.csv", index=False)
-    detail.to_csv(RESULTS / "new_detections_species_final.csv", index=False)
-    info = dict(data.info)
-    info["birdnet_weighted_map"] = {r: M.macro_ap(data, oof["birdnet"], r) for r in M.REGIMES}
-    info["birdnet_unweighted_map"] = {r: M.macro_ap(data, oof["birdnet"], r, weighted=False) for r in M.REGIMES}
-    info["uncertain_pairs"] = int(data.uncertain.sum())
-    info["positives_per_species"] = {s: int(v) for s, v in zip(data.species, data.Y.sum(axis=0))}
-    (RESULTS / "dataset_deep.json").write_text(json.dumps(info, indent=2, ensure_ascii=False), encoding="utf-8")
+def mark(flag) -> str:
+    return "--" if flag is None else ("s\\'i" if flag else "no")
+
+
+def load():
+    return json.loads((RESULTS / "eval.json").read_text(encoding="utf-8"))
 
 
 # --------------------------------------------------------------------------- #
 # Tablas
 # --------------------------------------------------------------------------- #
-def _load():
-    summ = pd.read_csv(RESULTS / "cv_summary_final.csv")
-    boot = json.loads((RESULTS / "bootstrap_final.json").read_text(encoding="utf-8"))
-    rev = pd.read_csv(RESULTS / "reviewed_only_final.csv")
-    snr = pd.read_csv(RESULTS / "snr_final.csv") if (RESULTS / "snr_final.csv").exists() else None
-    return summ, boot, rev, snr
-
-
-def _delta(boot: list[dict], m: str, regime: str, base: str = "birdnet"):
-    for b in boot:
-        if b.get("a") == m and b.get("b") == base and b.get("regime") == regime:
-            return b
-    return None
-
-
-def table_methods(summ, boot, rev) -> None:
-    piv = summ.pivot(index="method", columns="regime", values="macro_ap")
-    rec = summ[summ.regime == "estricto"].set_index("method")["macro_rec_at_p90"]
-    revs = rev.set_index("method")
-    methods = [m for m in ORDER if m in piv.index]
-    best = {r: piv.loc[[m for m in methods if m != "birdnet"], r].max() for r in ("estricto", "enmascarado")}
-    lines = [
-        "\\begin{tabular}{llcccccc}",
-        "\\toprule",
-        " & & \\multicolumn{2}{c}{mAP ponderada} & \\multicolumn{2}{c}{Diferencia frente a BirdNET (estricta)} & & \\\\",
-        "\\cmidrule(lr){3-4}\\cmidrule(lr){5-6}",
-        "Familia & M\\'etodo & estricta & enmasc. & $\\Delta$ & IC 95\\,\\% & Rec@P90 & AUC revisadas\\\\",
-        "\\midrule",
-    ]
-    last = None
-    for m in methods:
-        fam = FAMILY.get(m, "")
-        d = _delta(boot, m, "estricto")
-        cells = [
-            fam if fam != last else "",
-            SHORT.get(m, m),
-            num(piv.at[m, "estricto"]),
-            num(piv.at[m, "enmascarado"]),
-            "--" if d is None else signed(d["delta_mean"]),
-            "--" if d is None else interval(d["ci_low"], d["ci_high"]),
-            num(rec.get(m, np.nan)),
-            num(revs.at[m, "auc_pooled"], 2) if m in revs.index else "--",
-        ]
-        if last is not None and fam != last:
-            lines.append("\\addlinespace")
-        last = fam
-        lines.append(" & ".join(cells) + "\\\\")
-    lines += ["\\bottomrule", "\\end{tabular}"]
-    (TAB / "tab_deep_methods.tex").write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
-def table_reviewed(rev) -> None:
-    lines = ["\\begin{tabular}{lcccc}", "\\toprule", "M\\'etodo & AUC global & IC 95\\,\\% & Concordancia por especie & IC 95\\,\\%\\\\", "\\midrule"]
-    r = rev.set_index("method")
-    for m in [m for m in ORDER if m in r.index]:
-        lines.append(
-            f"{SHORT.get(m, m)} & {num(r.at[m, 'auc_pooled'], 2)} & [{num(r.at[m, 'auc_pooled_lo'], 2)}; {num(r.at[m, 'auc_pooled_hi'], 2)}] & "
-            f"{num(r.at[m, 'concordance'], 2)} & [{num(r.at[m, 'concordance_lo'], 2)}; {num(r.at[m, 'concordance_hi'], 2)}]\\\\"
-        )
-    lines += ["\\bottomrule", "\\end{tabular}"]
-    (TAB / "tab_deep_reviewed.tex").write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
-def table_snr(snr) -> None:
-    if snr is None:
-        return
-    levels = sorted(snr.atten_db.unique())
-    lines = ["\\begin{tabular}{l" + "c" * len(levels) + "cc}", "\\toprule"]
-    lines.append(" & \\multicolumn{" + str(len(levels)) + "}{c}{Exhaustividad seg\\'un la atenuaci\\'on del canto} & \\multicolumn{2}{c}{Diferencia a 12\\,dB}\\\\")
-    lines.append("\\cmidrule(lr){2-" + str(len(levels) + 1) + "}\\cmidrule(lr){" + str(len(levels) + 2) + "-" + str(len(levels) + 3) + "}")
-    lines.append("M\\'etodo & " + " & ".join("original" if a == 0 else f"$-${a:g}\\,dB" for a in levels) + " & $\\Delta$ & IC 95\\,\\%\\\\")
-    lines.append("\\midrule")
-    for m in [m for m in ORDER if m in set(snr.method)]:
-        g = snr[snr.method == m].set_index("atten_db")
-        row = [SHORT.get(m, m)] + [num(g.at[a, "recall"]) for a in levels]
-        if "delta_recall" in g.columns and np.isfinite(g.at[12.0, "delta_recall"] if 12.0 in g.index else np.nan):
-            row += [signed(g.at[12.0, "delta_recall"]), interval(g.at[12.0, "delta_lo"], g.at[12.0, "delta_hi"])]
-        else:
-            row += ["--", "--"]
-        lines.append(" & ".join(row) + "\\\\")
-    lines += ["\\bottomrule", "\\end{tabular}"]
-    (TAB / "tab_deep_snr.tex").write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
-def table_new() -> None:
-    path = RESULTS / "new_detections_final.csv"
-    if not path.exists():
-        return
-    t = pd.read_csv(path).set_index("method")
-    lines = [
-        "\\begin{tabular}{lcccc}",
-        "\\toprule",
-        "M\\'etodo & Detecciones nuevas por cada 100 validadas & Junto a una validada & Tasa base & Raz\\'on\\\\",
-        "\\midrule",
-    ]
-    for m in [m for m in ORDER if m in t.index and m != "birdnet"]:
-        if t.at[m, "new_weighted"] <= 0:
-            continue
-        lines.append(f"{SHORT.get(m, m)} & {num(t.at[m, 'new_per_100_validated'], 1)} & {num(100 * t.at[m, 'frac_adjacent'], 1)}\\,\\% & {num(100 * t.at[m, 'base_rate'], 1)}\\,\\% & {num(t.at[m, 'lift'], 1)}\\\\")
-    lines += ["\\bottomrule", "\\end{tabular}"]
-    (TAB / "tab_deep_new.tex").write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
-def table_lodo() -> None:
-    path = RESULTS / "lodo_heads.csv"
-    if not path.exists():
-        return
-    t = pd.read_csv(path)
-    t = t[t.regime == "estricto"]
-    methods = [m for m in ORDER if m in set(t.method)]
-    piv = t.pivot(index="device", columns="method", values="macro_ap")
-    n = t.drop_duplicates("device").set_index("device")
-    lines = ["\\begin{tabular}{lrr" + "c" * len(methods) + "}", "\\toprule", "Grabadora & ventanas & especies & " + " & ".join(SHORT.get(m, m) for m in methods) + "\\\\", "\\midrule"]
-    for dev in piv.index:
-        lines.append(f"{dev} & {int(n.at[dev, 'windows']):,}".replace(",", "\\,") + f" & {int(n.at[dev, 'species_evaluated'])} & " + " & ".join(num(piv.at[dev, m]) for m in methods) + "\\\\")
-    lines.append("\\midrule")
-    lines.append("Media & & & " + " & ".join(num(piv[m].mean()) for m in methods) + "\\\\")
-    lines += ["\\bottomrule", "\\end{tabular}"]
-    (TAB / "tab_deep_lodo.tex").write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
-def table_sample() -> None:
-    info = json.loads((RESULTS / "dataset_deep.json").read_text(encoding="utf-8"))
-    su, ss = info["strata_universe"], info["strata_sample"]
+def table_sample(ds: dict) -> None:
+    su, ss = ds["strata_universe"], ds["strata_sample"]
     rows = [
-        ("A", "Con alg\\'un positivo de especie rara ($\\leq$ 450) o alg\\'un rechazo", su["A"], "1", ss["A"]),
+        ("A", "Con alg\\'un positivo de una especie rara ($\\leq$ 450) o alg\\'un rechazo", su["A"], "1", ss["A"]),
         ("B", "Resto de grabaciones con detecciones revisadas", su["B"], "0{,}30", ss["B"]),
-        ("C", "Sesiones revisadas, sin detecciones revisadas", su["C"], "0{,}10", ss["C"]),
+        ("C", "De sesiones revisadas, sin detecciones revisadas", su["C"], "0{,}10", ss["C"]),
     ]
-    thin = lambda v: f"{int(v):,}".replace(",", "\\,")
     lines = ["\\begin{tabular}{clrcr}", "\\toprule", "Estrato & Grabaciones & Universo & Prob. & Muestra\\\\", "\\midrule"]
     lines += [f"{a} & {b} & {thin(c)} & {d} & {thin(e)}\\\\" for a, b, c, d, e in rows]
     lines += ["\\midrule", f"& Total & {thin(sum(su.values()))} & & {thin(sum(ss.values()))}\\\\", "\\bottomrule", "\\end{tabular}"]
     (TAB / "tab_deep_sample.tex").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def macros(summ, boot, rev, snr) -> None:
-    info = json.loads((RESULTS / "dataset_deep.json").read_text(encoding="utf-8"))
-    piv = summ.pivot(index="method", columns="regime", values="macro_ap")
-    names = {"birdnet": "Birdnet", "prototipos": "Proto", "lineal_v1": "LinealOld", "lineal": "Lineal", "mlp": "Mlp", "ft_v1": "FtOld", "residual": "Residual", "residual_estricto": "ResidualStrict", "contexto": "Contexto", "residual_mix": "ResidualMix", "lineal_mix": "LinealMix", "birdnet_x_lineal": "Ensemble", "ft_bloque4": "FtConv", "ft_bloques34": "FtConvDeep"}
-    thin = lambda v: f"{int(round(v)):,}".replace(",", "\\,")
+def table_cells(ds: dict) -> None:
+    cats = ds["categories"]
+    desc = [
+        ("P", "Validada por un experto", "positivo"),
+        ("H", "Rechazada por un experto", "negativo fiable"),
+        ("E", "BirdNET $<$ 0{,}05; nadie la revis\\'o", "negativo f\\'acil"),
+        ("G", "0{,}05 $\\leq$ BirdNET $<$ 0{,}25; nadie la revis\\'o", "desconocido"),
+        ("U", "BirdNET $\\geq$ 0{,}25 sin listar, celda no revisada o parcial", "desconocido"),
+        ("R0", "BirdNET $\\geq$ 0{,}25 sin listar, celda revisada", "negativo (solo al evaluar)"),
+        ("X", "Listada, pero BirdNET recalculado $<$ 0{,}25", "se excluye"),
+    ]
+    lines = ["\\begin{tabular}{clrl}", "\\toprule", "Cat. & Par (ventana, especie) & Pares & Uso\\\\", "\\midrule"]
+    lines += [f"{c} & {d} & {thin(cats[c]['pairs'])} & {u}\\\\" for c, d, u in desc]
+    lines += ["\\bottomrule", "\\end{tabular}"]
+    (TAB / "tab_deep_cells.tex").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def table_never(ds: dict, top: int = 8) -> None:
+    """Especies con mas propuestas de BirdNET en celdas que nadie reviso (para preguntar al equipo de validacion)."""
+    rows = ds.get("never_reviewed_by_species", [])
+    lines = ["\\begin{tabular}{lrr}", "\\toprule", "Especie & Celdas sin revisar (de las que tienen propuestas) & Propuestas sin revisar (estimaci\\'on)\\\\", "\\midrule"]
+    for r in rows[:top]:
+        lines.append(f"\\textit{{{r['species']}}} & {r['cells']} de {r['cells_total']} & {thin(r['detections'])}\\\\")
+    rest = rows[top:]
+    if rest:
+        lines.append(f"Otras {len(rest)} especies & {sum(r['cells'] for r in rest)} & {thin(sum(r['detections'] for r in rest))}\\\\")
+    lines += ["\\midrule", f"Total & {sum(r['cells'] for r in rows)} & {thin(sum(r['detections'] for r in rows))}\\\\", "\\bottomrule", "\\end{tabular}"]
+    (TAB / "tab_deep_never.tex").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def table_full(methods: dict) -> None:
+    """Subconjunto de la primera fase frente al conjunto completo (Colab) y a la muestra ponderada."""
+    sub = pd.read_csv(config.RESULTS_DIR / "cv_summary.csv")
+    full = pd.read_csv(config.RESULTS_DIR / "completo" / "cv_summary.csv")
+    rows = [("birdnet", "BirdNET V2.4 (sin ajuste)"), ("ft_birdnet", "\\'Ultima capa afinada (L2-SP)"), ("lineal_l2", "Sonda lineal desde cero"), ("mlp_l2", "MLP desde cero"), ("prototipos", "Prototipos coseno (app)")]
+
+    def get(df, m, regime):
+        v = df[(df.method == m) & (df.regime == regime)]["macro_ap"]
+        return float(v.iloc[0]) if len(v) else float("nan")
+
+    lines = [
+        "\\begin{tabular}{lcccc}",
+        "\\toprule",
+        " & Subconjunto (257 grab.) & \\multicolumn{2}{c}{Conjunto completo (16\\,629 grab.)} & Muestra ponderada\\\\",
+        "\\cmidrule(lr){2-2}\\cmidrule(lr){3-4}\\cmidrule(lr){5-5}",
+        "M\\'etodo & estricta & estricta & enmascarada & estricta\\\\",
+        "\\midrule",
+    ]
+    sample = {"birdnet": methods["birdnet"]["map_estricto"], "lineal_l2": methods.get("lineal_v1", {}).get("map_estricto"), "prototipos": methods.get("prototipos", {}).get("map_estricto")}
+    for m, label in rows:
+        lines.append(f"{label} & {num(get(sub, m, 'estricto'))} & {num(get(full, m, 'estricto'))} & {num(get(full, m, 'enmascarado'))} & {num(sample.get(m))}\\\\")
+    lines += ["\\bottomrule", "\\end{tabular}"]
+    (TAB / "tab_deep_full.tex").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _ladder_rows(methods: dict, names: list[str]) -> list[str]:
+    lines = []
+    for m in [x for x in names if x in methods]:
+        r = methods[m]
+        d1, d3 = r["map_limpio_delta"], r.get("m3_presupuesto_S_delta")
+        orig = r.get("m3_presupuesto", {}).get("0")
+        lines.append(
+            f"{NAMES[m]} & {num(r['map_limpio'])} & {signed(d1['delta'])} {interval(d1['ci_low'], d1['ci_high'])} & {num(r['sli'], 2)} & "
+            f"{'--' if orig is None else num(100 * orig, 1)} & {'--' if d3 is None else num(100 * r['m3_presupuesto_S'], 1)} & "
+            f"{'--' if d3 is None else signed(100 * d3['delta'], 1) + ' ' + interval(100 * d3['ci_low'], 100 * d3['ci_high'], 1)} & "
+            f"{mark(r.get('D1_seguro'))} & {mark(r.get('D3_atenuados'))}\\\\"
+        )
+    return lines
+
+
+def table_results(methods: dict) -> None:
+    """Escalera de modelos anclados: control de seguridad (M1), fuga (SLI) y cantos atenuados (M3)."""
+    b = methods["birdnet"]
+    lines = [
+        "\\begin{tabular}{lcccccccc}",
+        "\\toprule",
+        " & \\multicolumn{2}{c}{M1: mAP limpia} & & \\multicolumn{3}{c}{M3: exhaustividad (\\%)} & \\multicolumn{2}{c}{Reglas}\\\\",
+        "\\cmidrule(lr){2-3}\\cmidrule(lr){5-7}\\cmidrule(lr){8-9}",
+        "Modelo & valor & $\\Delta$ [IC 95\\,\\%] & SLI & original & $S$ & $\\Delta S$ [IC 95\\,\\%] & D1 & D3\\\\",
+        "\\midrule",
+        f"{NAMES['birdnet']} & {num(b['map_limpio'])} & -- & {num(b['sli'], 2)} & {num(100 * b['m3_presupuesto']['0'], 1)} & {num(100 * b['m3_presupuesto_S'], 1)} & -- & -- & --\\\\",
+        "\\addlinespace",
+        "\\multicolumn{9}{l}{\\emph{Correcci\\'on libre}}\\\\",
+    ]
+    lines += _ladder_rows(methods, FREE)
+    bounded = _ladder_rows(methods, BOUNDED)
+    if bounded:
+        lines += ["\\addlinespace", "\\multicolumn{9}{l}{\\emph{Correcci\\'on acotada a $\\pm 0{,}9$ logits (a\\~nadida despu\\'es de ver los resultados de las cabezas)}}\\\\"] + bounded
+    lines += ["\\bottomrule", "\\end{tabular}"]
+    (TAB / "tab_deep_results.tex").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def table_m3(methods: dict) -> None:
+    levels = [f"{a:g}" for a in PR.LEVELS]
+    head = " & ".join("original" if a == "0" else f"$-${a}\\,dB" for a in levels)
+    lines = ["\\begin{tabular}{l" + "c" * len(levels) + "c}", "\\toprule", f"Modelo & {head} & 1\\,\\% f.\\,a.\\\\", "\\midrule"]
+    groups = [["birdnet"], [m for m in FREE if not m.startswith("mlp_")], BOUNDED]
+    for gi, group in enumerate(groups):
+        rows = [m for m in group if m in methods and "m3_presupuesto" in methods[m]]
+        if not rows:
+            continue
+        if gi == 2:
+            lines.append("\\multicolumn{7}{l}{\\emph{Correcci\\'on acotada}}\\\\")
+        for m in rows:
+            r = methods[m]
+            lines.append(f"{NAMES[m]} & " + " & ".join(num(100 * r["m3_presupuesto"][a], 1) for a in levels) + f" & {num(100 * r['m3_falsas_alarmas_S'], 1)}\\\\")
+        if gi < 2:
+            lines.append("\\addlinespace")
+    lines += ["\\bottomrule", "\\end{tabular}"]
+    (TAB / "tab_deep_m3.tex").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def table_verifiers(methods: dict, n_rej: int) -> None:
+    lines = [
+        "\\begin{tabular}{lcccccc}",
+        "\\toprule",
+        f"Modelo & M2 [IC 95\\,\\%] & $\\Delta$ frente a BirdNET [IC 95\\,\\%] & Retirados (de {n_rej}) & SLI & D1 & D2\\\\",
+        "\\midrule",
+    ]
+    for m in [x for x in VERIFIERS + ["lineal", "mlp", "post", "b43", "b4"] + BOUNDED if x in methods]:
+        r = methods[m]
+        c = r["m2_ci"]
+        d = r.get("m2_delta")
+        label = NAMES[m] + (" (acotada)" if m in BOUNDED else "")
+        lines.append(
+            f"{label} & {num(r['m2'], 2)} [{num(c['ci_low'], 2)}; {num(c['ci_high'], 2)}] & {'--' if d is None else signed(d['delta'], 2) + ' ' + interval(d['ci_low'], d['ci_high'], 2)} & "
+            f"{r['m2_removed95']} & {num(r['sli'], 2)} & {mark(r.get('D1_seguro'))} & {mark(r.get('D2_rechazos'))}\\\\"
+        )
+        if m in ("birdnet", "lineal_desde_cero"):
+            lines.append("\\addlinespace")
+    lines += ["\\bottomrule", "\\end{tabular}"]
+    (TAB / "tab_deep_verifiers.tex").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def table_ladder(ladder: list[dict]) -> None:
+    lines = ["\\begin{tabular}{lccc}", "\\toprule", "Comparaci\\'on (A $-$ B) & $\\Delta S$ de M3, puntos [IC 95\\,\\%] & $\\Delta$ M1 (mAP limpia) [IC 95\\,\\%] & $\\Delta$ M2 [IC 95\\,\\%]\\\\", "\\midrule"]
+    short = {"lineal": "lineal", "mlp": "MLP", "mlp_sin_mezclas": "MLP sin mezclas", "mlp_estricto": "MLP con etiquetas estrictas", "mlp_semilla2": "MLP con otra semilla", "mlp_neg_mezcla": "MLP con negativos de mezcla", "post": "POST\\_CONV", "b43": "sub-bloques 4-3/4-4", "b4": "bloque 4"}
+    for row in ladder:
+        a, b = short.get(row["a"], row["a"]), short.get(row["b"], row["b"])
+        m3 = row["m3_S"]
+        cells = [f"{signed(100 * m3['delta'], 1)} {interval(100 * m3['ci_low'], 100 * m3['ci_high'], 1)}"]
+        cells += [f"{signed(row[k]['delta'], nd)} {interval(row[k]['ci_low'], row[k]['ci_high'], nd)}" for k, nd in (("map_limpio", 3), ("m2", 2))]
+        lines.append(f"{a} $-$ {b} & " + " & ".join(cells) + "\\\\")
+    lines += ["\\bottomrule", "\\end{tabular}"]
+    (TAB / "tab_deep_ladder.tex").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def table_grid(run: dict) -> None:
+    """Configuracion elegida en cada pliegue con el pliegue interno, por escalon."""
+    rows = [("lineal", "Lineal"), ("mlp", "MLP"), ("post", "POST\\_CONV"), ("b43", "Sub-bloques 4-3 y 4-4"), ("b4", "Bloque 4 completo")]
+    lines = ["\\begin{tabular}{lcccccc}", "\\toprule", "Escal\\'on & Pliegue 1 & Pliegue 2 & Pliegue 3 & Pliegue 4 & Pliegue 5 & Deriva relativa\\\\", "\\midrule"]
+    for m, label in rows:
+        if m not in run:
+            continue
+        folds = run[m]["folds"]
+        picks = [GRID_NAMES.get(f["picked"], f["picked"]) + ("" if any(v["feasible"] for v in f["inner"].values()) else "$^{*}$") for f in folds]
+        drift = [f["relative_drift"] for f in folds if "relative_drift" in f]
+        if drift:
+            conv = [np.mean([v for k, v in d.items() if k != "classifier"]) for d in drift]
+            cell = f"{num(100 * float(np.mean(conv)), 1)}\\,\\%"
+        else:
+            cell = "--"
+        lines.append(f"{label} & " + " & ".join(picks) + f" & {cell}\\\\")
+    lines += ["\\bottomrule", "\\end{tabular}"]
+    (TAB / "tab_deep_grid.tex").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def macros(doc: dict, run: dict) -> None:
+    methods, ds = doc["methods"], doc["dataset"]
     out = ["% Generado por finetuning/deep/report.py; no editar a mano."]
-    out.append(f"\\newcommand{{\\deepRecordings}}{{{thin(info['recordings'])}}}")
-    out.append(f"\\newcommand{{\\deepWindows}}{{{thin(info['windows'])}}}")
-    out.append(f"\\newcommand{{\\deepPositives}}{{{thin(info['positive_pairs'])}}}")
-    out.append(f"\\newcommand{{\\deepRejected}}{{{info['hard_negative_pairs']}}}")
-    out.append(f"\\newcommand{{\\deepUniverseWindows}}{{{thin(info['estimated_universe_windows'])}}}")
-    out.append(f"\\newcommand{{\\deepUniversePositives}}{{{thin(info['estimated_universe_positive_pairs'])}}}")
-    out.append(f"\\newcommand{{\\deepQc}}{{{num(100 * info['qc_agreement_kept'], 1)}}}")
-    out.append(f"\\newcommand{{\\deepBirdnetUnweighted}}{{{num(info['birdnet_unweighted_map']['estricto'])}}}")
-    for m, tag in names.items():
-        if m in piv.index:
-            out.append(f"\\newcommand{{\\deepMap{tag}}}{{{num(piv.at[m, 'estricto'])}}}")
-            out.append(f"\\newcommand{{\\deepMapMasked{tag}}}{{{num(piv.at[m, 'enmascarado'])}}}")
-            d = _delta(boot, m, "estricto")
-            if d is not None:
-                out.append(f"\\newcommand{{\\deepDelta{tag}}}{{{signed(d['delta_mean'])}}}")
-                out.append(f"\\newcommand{{\\deepCi{tag}}}{{{interval(d['ci_low'], d['ci_high'])}}}")
-    r = rev.set_index("method")
-    for m, tag in names.items():
-        if m in r.index:
-            out.append(f"\\newcommand{{\\deepRev{tag}}}{{{num(r.at[m, 'auc_pooled'], 2)}}}")
-    if snr is not None:
-        for m, tag in names.items():
-            g = snr[snr.method == m].set_index("atten_db")
-            for a, lab in ((0.0, "Zero"), (6.0, "Six"), (12.0, "Twelve"), (18.0, "Eighteen"), (24.0, "TwentyFour")):
-                if a in g.index:
-                    out.append(f"\\newcommand{{\\deepSnr{tag}{lab}}}{{{num(100 * g.at[a, 'recall'], 1)}}}")
+    add = lambda name, value: out.append(f"\\newcommand{{\\{name}}}{{{value}}}")
+    add("deepRecordings", thin(ds["recordings"]))
+    add("deepWindows", thin(ds["windows"]))
+    add("deepPositives", thin(ds["positive_pairs"]))
+    add("deepUniverseWindows", thin(ds["estimated_universe_windows"]))
+    add("deepUniversePositives", thin(ds["estimated_universe_positive_pairs"]))
+    add("deepQc", num(100 * ds["qc_agreement_kept"], 1))
+    add("deepRejections", str(ds["m2_rejections"]))
+    add("deepSpeciesAtt", str(ds["m3_species"]))
+    add("deepReps", thin(ds["bootstrap_reps"]))
+    cells = ds["review_cells"]
+    add("deepCellsReviewed", str(cells.get("revisada", 0)))
+    add("deepCellsNever", str(cells.get("nunca", 0)))
+    add("deepCellsPartial", str(cells.get("parcial", 0)))
+    add("deepCellsTotal", str(sum(cells.values())))
+    for c in ("P", "H", "U", "R0", "G", "X"):
+        add(f"deepCat{c.replace('0', 'Zero')}", thin(ds["categories"][c]["pairs"]))
+    add("deepCatUWeighted", thin(ds["categories"]["U"]["weighted"]))
+    add("deepCatGWeighted", thin(ds["categories"]["G"]["weighted"]))
+    add("deepCatPWeighted", thin(ds["categories"]["P"]["weighted"]))
+    mix = ds["mixtures"]
+    add("deepMixTotal", thin(sum(mix.values())))
+    add("deepMixTest", thin(mix.get("test", 0)))
+    add("deepMixTrain", thin(mix.get("train", 0)))
+    add("deepMixSources", thin(mix.get("test", 0) / (len(PR.LEVELS) - 1)))
+    for m, tag in MACRO.items():
+        if m not in methods:
+            continue
+        r = methods[m]
+        add(f"deepClean{tag}", num(r["map_limpio"]))
+        add(f"deepCleanFold{tag}", num(r["map_limpio_pliegues"]))
+        add(f"deepStrict{tag}", num(r["map_estricto"]))
+        add(f"deepMasked{tag}", num(r["map_enmascarado"]))
+        add(f"deepSli{tag}", num(r["sli"], 2))
+        add(f"deepRej{tag}", num(r["m2"], 2))
+        add(f"deepRejPct{tag}", num(100 * r["m2"], 0))
+        add(f"deepRejRemoved{tag}", str(r["m2_removed95"]))
+        if "map_limpio_delta" in r:
+            add(f"deepCleanDelta{tag}", signed(r["map_limpio_delta"]["delta"]))
+            add(f"deepCleanCi{tag}", interval(r["map_limpio_delta"]["ci_low"], r["map_limpio_delta"]["ci_high"]))
+            add(f"deepCleanFoldDelta{tag}", signed(r["map_limpio_pliegues"] - methods["birdnet"]["map_limpio_pliegues"]))
+            add(f"deepRejDelta{tag}", signed(r["m2_delta"]["delta"], 2))
+            add(f"deepRejCi{tag}", interval(r["m2_delta"]["ci_low"], r["m2_delta"]["ci_high"], 2))
+        g = r.get("gate_changes")
+        if g and m != "birdnet":
+            add(f"deepGrayUp{tag}", num(100 * g["nuevas"]["G"]["fraccion_ponderada"], 0))
+            add(f"deepSilentUp{tag}", thin(g["nuevas"]["E"]["pares"]))
+            add(f"deepValidLost{tag}", thin(g["perdidas"]["P"]["pares"]))
+        if "m3_presupuesto" in r:
+            add(f"deepAtt{tag}", num(100 * r["m3_presupuesto_S"], 1))
+            add(f"deepAttFa{tag}", num(100 * r["m3_falsas_alarmas_S"], 1))
+            for a, lab in (("0", "Zero"), ("6", "Six"), ("12", "Twelve"), ("18", "Eighteen"), ("24", "TwentyFour")):
+                add(f"deepAtt{tag}{lab}", num(100 * r["m3_presupuesto"][a], 1))
+            if "m3_presupuesto_S_delta" in r:
+                d = r["m3_presupuesto_S_delta"]
+                add(f"deepAttDelta{tag}", signed(100 * d["delta"], 1))
+                add(f"deepAttCi{tag}", interval(100 * d["ci_low"], 100 * d["ci_high"], 1))
+                d6 = r["m3_presupuesto_delta"]["6"]
+                add(f"deepAttSixDelta{tag}", signed(100 * d6["delta"], 1))
+                add(f"deepAttSixCi{tag}", interval(100 * d6["ci_low"], 100 * d6["ci_high"], 1))
+    if "mixture_negatives_available" in run.get("mlp_neg_mezcla", {}):
+        add("deepMixNegatives", thin(run["mlp_neg_mezcla"]["mixture_negatives_available"]))
+    verifier = run.get("_probes", {}).get("verifier", {}).get("out_of_sample")
+    if verifier:
+        add("deepFlagValid", num(100 * verifier["validadas"]["fraccion_ponderada"], 1))
+        add("deepFlagRejected", str(verifier["rechazadas"]["marcadas"]))
+        add("deepFlagRejectedOf", str(verifier["rechazadas"]["pares"]))
+        add("deepFlagUnreviewed", num(100 * verifier["sin_revisar"]["fraccion_ponderada"], 1))
+        held = verifier.get("modelo_exportado_en_validacion_interna")
+        if held:
+            add("deepFlagHeldValid", num(100 * held["fraccion_ponderada"], 1))
+            add("deepFlagHeldMarked", str(held["marcadas"]))
+            add("deepFlagHeldOf", thin(held["validadas"]))
     (TAB / "macros_deep.tex").write_text("\n".join(out) + "\n", encoding="utf-8")
 
 
@@ -344,151 +384,123 @@ def _save(fig, name: str) -> None:
     plt.close(fig)
 
 
-def figure_methods(summ, boot) -> None:
-    """Barras horizontales de mAP por metodo (un panel por regimen); BirdNET en gris de referencia."""
-    piv = summ.pivot(index="method", columns="regime", values="macro_ap")
-    methods = [m for m in ORDER if m in piv.index]
-    ci = {(b["method"], b["regime"]): (b["ci_low"], b["ci_high"]) for b in boot if "method" in b}
-    fig, axes = plt.subplots(1, 2, figsize=(7.2, 0.33 * len(methods) + 1.0), sharey=True)
-    y = np.arange(len(methods))[::-1]
-    for ax, regime, title in zip(axes, ("estricto", "enmascarado"), ("Régimen estricto", "Régimen enmascarado")):
-        vals = piv.loc[methods, regime].to_numpy()
-        colors = [C_REF if m == "birdnet" else C1 for m in methods]
-        ax.barh(y, vals, height=0.56, color=colors, edgecolor=SURFACE, linewidth=0.8, zorder=2)
-        for yi, m, v in zip(y, methods, vals):
-            if (m, regime) in ci:
-                lo, hi = ci[(m, regime)]
-                ax.plot([lo, hi], [yi, yi], color=INK, linewidth=0.9, zorder=3, solid_capstyle="butt")
-            ax.text(min(max(v, ci.get((m, regime), (v, v))[1]) + 0.012, 1.0), yi, f"{v:.3f}".replace(".", ","), va="center", ha="left", fontsize=7.5, color=INK)
-        ax.axvline(piv.at["birdnet", regime], color=MUTED, linewidth=0.8, zorder=1)
-        ax.set_xlim(0, 1.12)
-        ax.set_xticks([0, 0.25, 0.5, 0.75, 1.0])
-        ax.set_xticklabels(["0", "0,25", "0,5", "0,75", "1"])
-        ax.set_title(title, loc="left")
-        ax.set_xlabel("mAP macro ponderada")
+def figure_m3(methods: dict, focus: list[str]) -> None:
+    """Cambio de exhaustividad respecto de BirdNET en cada nivel de atenuacion, con IC 95 %, para hasta tres modelos."""
+    styles = [(C1, "D"), (C2, "s"), (C3, "^")]
+    fig, ax = plt.subplots(figsize=(6.0, 3.6))
+    x = np.arange(len(PR.LEVELS), dtype=float)
+    step = 0.22
+    offsets = (np.arange(len(focus)) - (len(focus) - 1) / 2) * step
+    ax.axhline(0, color=MUTED, linewidth=0.9, zorder=1)
+    for (color, mk), m, off in zip(styles, focus, offsets):
+        d = methods[m]["m3_presupuesto_delta"]
+        y = np.array([100 * d[f"{a:g}"]["delta"] for a in PR.LEVELS])
+        lo = np.array([100 * d[f"{a:g}"]["ci_low"] for a in PR.LEVELS])
+        hi = np.array([100 * d[f"{a:g}"]["ci_high"] for a in PR.LEVELS])
+        ax.vlines(x + off, lo, hi, color=color, linewidth=1.6, alpha=0.55, zorder=2)
+        ax.scatter(x + off, y, s=46, color=color, marker=mk, edgecolor=SURFACE, linewidth=1.2, label=PLAIN[m], zorder=3)
+    base = methods["birdnet"]["m3_presupuesto"]
+    ax.set_xticks(x)
+    ax.set_xticklabels([("original" if a == 0 else f"−{a:g} dB") + f"\nBirdNET: {100 * base[f'{a:g}']:.0f} %" for a in PR.LEVELS])
+    ax.set_xlim(-0.5, len(PR.LEVELS) - 0.5)
+    ax.set_ylabel("Cambio de exhaustividad frente a BirdNET\n(puntos, mismo volumen de alertas)")
+    ax.set_xlabel("Atenuación del canto validado sobre un fondo de su misma sesión")
+    ax.grid(axis="x", visible=False)
+    ax.legend(loc="lower right", frameon=False)
+    fig.tight_layout()
+    _save(fig, "fig_deep_m3")
+
+
+def figure_tradeoff(methods: dict, free: list[str], bounded: list[str]) -> None:
+    """Dos paneles con una fila por modelo: cambio de mAP limpia (seguridad) y cambio de exhaustividad atenuada, con IC 95 %."""
+    names = free + bounded
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(6.6, 0.33 * len(names) + 1.25), sharey=True, gridspec_kw={"width_ratios": [1.15, 1.0], "wspace": 0.06})
+    y = np.arange(len(names))[::-1]
+    lows = [methods[m]["map_limpio_delta"]["ci_low"] for m in names]
+    highs = [methods[m]["map_limpio_delta"]["ci_high"] for m in names]
+    left = min(min(lows), -0.02) - 0.006
+    ax1.axvspan(left, -PR.NONINFERIORITY, color="#e34948", alpha=0.07, linewidth=0, zorder=0)
+    ax1.axvline(-PR.NONINFERIORITY, color=MUTED, linewidth=0.8, zorder=1)
+    ax1.axvline(0, color=GRID, linewidth=0.8, zorder=1)
+    ax2.axvline(0, color=MUTED, linewidth=0.8, zorder=1)
+    for yi, m in zip(y, names):
+        r = methods[m]
+        color, mk = (C3, "o") if m in bounded else (C1, "D")
+        d1, d3 = r["map_limpio_delta"], r["m3_presupuesto_S_delta"]
+        ax1.plot([d1["ci_low"], d1["ci_high"]], [yi, yi], color=color, linewidth=1.5, alpha=0.55, zorder=2)
+        ax1.scatter([d1["delta"]], [yi], s=40, color=color, marker=mk, edgecolor=SURFACE, linewidth=1.1, zorder=3)
+        ax2.plot([100 * d3["ci_low"], 100 * d3["ci_high"]], [yi, yi], color=color, linewidth=1.5, alpha=0.55, zorder=2)
+        ax2.scatter([100 * d3["delta"]], [yi], s=40, color=color, marker=mk, edgecolor=SURFACE, linewidth=1.1, zorder=3)
+    if bounded and free:
+        for ax in (ax1, ax2):
+            ax.axhline(len(bounded) - 0.5, color=GRID, linewidth=0.8, zorder=1)
+    ax1.set_yticks(y)
+    ax1.set_yticklabels([PLAIN[m] for m in names])
+    ax1.set_ylim(-0.6, len(names) - 0.4)
+    ax1.set_xlim(left, max(max(highs), 0.0) + 0.006)
+    ax1.text(left + 0.002, len(names) - 0.55, "no pasa el control", fontsize=7, color=INK_2, va="top")
+    ax1.set_xlabel("Cambio de mAP limpia (seguridad: > −0,01)")
+    ax2.set_xlabel("Cambio de exhaustividad en\ncantos atenuados (puntos)")
+    for ax in (ax1, ax2):
         ax.grid(axis="y", visible=False)
-    axes[0].set_yticks(y)
-    axes[0].set_yticklabels([PLAIN.get(m, m) for m in methods])
+    ax2.tick_params(axis="y", length=0)
     fig.tight_layout()
-    _save(fig, "fig_deep_methods")
+    _save(fig, "fig_deep_tradeoff")
 
 
-def figure_snr(snr, focus: list[str] | None = None) -> None:
-    """Exhaustividad frente a atenuacion: BirdNET (referencia) y hasta tres modelos."""
-    if snr is None:
-        return
-    avail = [m for m in ORDER if m in set(snr.method)]
-    if focus is None:
-        cands = [m for m in ("ft_bloque4", "residual_mix", "lineal_mix", "birdnet_x_lineal_mix", "residual", "lineal") if m in avail]
-        focus = ["birdnet"] + cands[:3]
-    styles = {0: (C_REF, "--", "o"), 1: (C1, "-", "D"), 2: (C2, "-", "s"), 3: (C3, "-", "^")}
-    fig, ax = plt.subplots(figsize=(5.6, 3.5))
-    ends = []
-    for i, m in enumerate(focus):
-        g = snr[snr.method == m].sort_values("atten_db")
-        color, ls, mk = styles[i]
-        x = g.atten_db.to_numpy()
-        ax.fill_between(x, 100 * g.recall_lo, 100 * g.recall_hi, color=color, alpha=0.10, linewidth=0, zorder=1)
-        ax.plot(x, 100 * g.recall, color=color, linestyle=ls, linewidth=2.0, marker=mk, markersize=6.5, markeredgecolor=SURFACE, markeredgewidth=1.4, label=PLAIN.get(m, m), zorder=3)
-        ends.append((float(100 * g.recall.iloc[-1]), m))
-    # etiquetas directas al final de cada linea, separadas si se pisan
-    ends.sort()
-    placed = []
-    for v, m in ends:
-        yv = v if not placed or v - placed[-1] >= 4.5 else placed[-1] + 4.5
-        placed.append(yv)
-        ax.annotate(f"{v:.0f} %", xy=(24, v), xytext=(25.0, yv), fontsize=7.5, color=INK, va="center", arrowprops=dict(arrowstyle="-", color=MUTED, linewidth=0.6) if abs(yv - v) > 0.5 else None)
-    ax.set_xticks([0, 6, 12, 18, 24])
-    ax.set_xticklabels(["original", "−6 dB", "−12 dB", "−18 dB", "−24 dB"])
-    ax.set_xlim(-1, 28)
-    ax.set_ylim(0, 105)
-    ax.set_ylabel("Exhaustividad (%) con 0,5 % de falsos positivos")
-    ax.set_xlabel("Atenuación del canto sobre un fondo de la misma sesión")
-    ax.legend(loc="lower left", frameon=False)
-    fig.tight_layout()
-    _save(fig, "fig_deep_snr")
-
-
-def figure_snr_species(method: str | None = None, level: float = 12.0) -> None:
-    """Por especie: exhaustividad a ``level`` dB de atenuacion, BirdNET frente al modelo afinado (mancuernas)."""
-    path = RESULTS / "snr_species_final.csv"
-    if not path.exists():
-        return
-    t = pd.read_csv(path)
-    avail = set(t.method)
-    if method is None:
-        method = next((m for m in ("ft_bloque4", "residual_mix", "lineal_mix") if m in avail), None)
-    if method is None or "birdnet" not in avail:
-        return
-    a = t[(t.method == "birdnet") & np.isclose(t.atten_db, level)].set_index("species")["recall"]
-    b = t[(t.method == method) & np.isclose(t.atten_db, level)].set_index("species")["recall"]
-    df = pd.DataFrame({"birdnet": a, "modelo": b}).dropna()
-    df = df.assign(delta=df.modelo - df.birdnet).sort_values("delta")
-    fig, ax = plt.subplots(figsize=(6.0, 0.2 * len(df) + 1.1))
-    y = np.arange(len(df))
-    for yi, (_, r) in zip(y, df.iterrows()):
-        ax.plot([100 * r.birdnet, 100 * r.modelo], [yi, yi], color=GRID if abs(r.delta) < 1e-9 else MUTED, linewidth=1.2, zorder=1)
-    ax.scatter(100 * df.birdnet, y, s=34, color=C_REF, edgecolor=SURFACE, linewidth=1.2, zorder=3, label=PLAIN["birdnet"], marker="o")
-    ax.scatter(100 * df.modelo, y, s=34, color=C1, edgecolor=SURFACE, linewidth=1.2, zorder=4, label=PLAIN.get(method, method), marker="D")
+def figure_m2(methods: dict, names: list[str]) -> None:
+    """Colocacion de los rechazos (M2) por modelo, con IC; linea de referencia en BirdNET."""
+    fig, ax = plt.subplots(figsize=(6.0, 0.36 * len(names) + 0.9))
+    y = np.arange(len(names))[::-1]
+    base = methods["birdnet"]["m2"]
+    ax.axvline(base, color=MUTED, linewidth=0.8, zorder=1)
+    ax.axvline(0.5, color=GRID, linewidth=0.8, zorder=1)
+    for yi, m in zip(y, names):
+        r = methods[m]
+        c = r["m2_ci"]
+        ax.plot([c["ci_low"], c["ci_high"]], [yi, yi], color=MUTED, linewidth=1.1, zorder=2)
+        ax.scatter([r["m2"]], [yi], s=44, color=C_REF if m == "birdnet" else C1, edgecolor=SURFACE, linewidth=1.2, zorder=3)
+        ax.text(min(c["ci_high"] + 0.012, 0.975), yi, f"{r['m2']:.2f}".replace(".", ","), va="center", fontsize=7.5, color=INK)
     ax.set_yticks(y)
-    ax.set_yticklabels(df.index, fontstyle="italic", fontsize=7.5)
-    ax.set_xlim(-3, 103)
-    ax.set_xlabel(f"Exhaustividad (%) con el canto atenuado {level:g} dB")
+    ax.set_yticklabels([PLAIN[m] for m in names])
+    ax.set_xlim(0.4, 1.0)
+    ax.set_xticks([0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+    ax.set_xticklabels(["0,5", "0,6", "0,7", "0,8", "0,9", "1"])
+    ax.set_xlabel("M2: fracción de detecciones validadas que quedan por encima de cada rechazo")
     ax.grid(axis="y", visible=False)
-    ax.legend(loc="lower right", frameon=False)
     fig.tight_layout()
-    _save(fig, "fig_deep_snr_species")
-
-
-def figure_species(focus: tuple[str, ...] = ("prototipos", "lineal_v1", "lineal")) -> None:
-    """AP por especie de las cabezas entrenadas desde cero (receta anterior frente a nueva)."""
-    t = pd.read_csv(RESULTS / "cv_metrics_final.csv")
-    t = t[t.regime == "estricto"]
-    focus = tuple(m for m in focus if m in set(t.method))
-    if len(focus) < 2:
-        return
-    piv = t.pivot(index="species", columns="method", values="ap")
-    order = piv[focus[-1]].sort_values().index
-    styles = [(C2, "s"), (C3, "^"), (C1, "D")]
-    fig, ax = plt.subplots(figsize=(6.0, 0.2 * len(order) + 1.1))
-    y = np.arange(len(order))
-    ax.hlines(y, piv.loc[order, list(focus)].min(axis=1), piv.loc[order, list(focus)].max(axis=1), color=GRID, linewidth=1.2, zorder=1)
-    if "birdnet" in piv.columns:
-        ax.scatter(piv.loc[order, "birdnet"], y, s=22, facecolor="none", edgecolor=C_REF, linewidth=1.0, zorder=2, label=PLAIN["birdnet"])
-    for m, (c, mk) in zip(focus, styles[-len(focus) :]):
-        ax.scatter(piv.loc[order, m], y, s=30, color=c, marker=mk, edgecolor=SURFACE, linewidth=1.0, zorder=3, label=PLAIN.get(m, m))
-    ax.set_yticks(y)
-    ax.set_yticklabels(order, fontstyle="italic", fontsize=7.5)
-    ax.set_xlim(-0.02, 1.02)
-    ax.set_xticks([0, 0.25, 0.5, 0.75, 1.0])
-    ax.set_xticklabels(["0", "0,25", "0,5", "0,75", "1"])
-    ax.set_xlabel("Precisión promedio (AP) ponderada, régimen estricto")
-    ax.grid(axis="y", visible=False)
-    ax.legend(loc="lower right", frameon=False)
-    fig.tight_layout()
-    _save(fig, "fig_deep_species")
+    _save(fig, "fig_deep_m2")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--no-eval", action="store_true")
-    parser.add_argument("--reps", type=int, default=500)
-    args = parser.parse_args()
-    if not args.no_eval:
-        final_evaluation(reps=args.reps)
-    summ, boot, rev, snr = _load()
+    doc = load()
+    methods, ds = doc["methods"], doc["dataset"]
+    run_path = RESULTS / "run_info_ra.json"
+    run = json.loads(run_path.read_text(encoding="utf-8")) if run_path.exists() else {}
+    probes_path = RESULTS / "run_info_probes.json"
+    if probes_path.exists():
+        run["_probes"] = json.loads(probes_path.read_text(encoding="utf-8"))
     TAB.mkdir(parents=True, exist_ok=True)
-    table_methods(summ, boot, rev)
-    table_reviewed(rev)
-    table_snr(snr)
-    table_new()
-    table_lodo()
-    table_sample()
-    macros(summ, boot, rev, snr)
-    figure_methods(summ, boot)
-    figure_snr(snr)
-    figure_snr_species()
-    figure_species()
+    table_sample(ds)
+    table_cells(ds)
+    table_never(ds)
+    table_full(methods)
+    table_results(methods)
+    table_m3(methods)
+    table_verifiers(methods, ds["m2_rejections"])
+    table_ladder(doc["ladder"])
+    table_grid(run)
+    macros(doc, run)
+    has = lambda m: m in methods and "m3_presupuesto_S_delta" in methods[m]
+    free = [m for m in FREE if has(m)]
+    bounded = [m for m in BOUNDED if has(m)]
+    if free:
+        deep = [m for m in ("b4", "b43", "post") if has(m)]
+        top = deep[0] if deep else "mlp"
+        focus = [m for m in ("mlp", top, f"{top}_acotado") if has(m)]
+        figure_m3(methods, list(dict.fromkeys(focus)))
+        figure_tradeoff(methods, free, bounded)
+    figure_m2(methods, [m for m in ("birdnet", "dos_etapas", "lineal_desde_cero", "lineal_v1", "prototipos", "verificador", "mlp", "post", "b43", "b4") if m in methods])
     print("Tablas y figuras escritas en", TAB, "y", FIG)
 
 

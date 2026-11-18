@@ -1,0 +1,13 @@
+\begin{tabular}{lcccc}
+\toprule
+ & Subconjunto (257 grab.) & \multicolumn{2}{c}{Conjunto completo (16\,629 grab.)} & Muestra ponderada\\
+\cmidrule(lr){2-2}\cmidrule(lr){3-4}\cmidrule(lr){5-5}
+M\'etodo & estricta & estricta & enmascarada & estricta\\
+\midrule
+BirdNET V2.4 (sin ajuste) & 0{,}973 & 0{,}850 & 0{,}925 & 0{,}855\\
+\'Ultima capa afinada (L2-SP) & 0{,}968 & 0{,}845 & 0{,}918 & --\\
+Sonda lineal desde cero & 0{,}724 & 0{,}601 & 0{,}626 & 0{,}666\\
+MLP desde cero & 0{,}705 & 0{,}596 & 0{,}619 & --\\
+Prototipos coseno (app) & 0{,}553 & 0{,}361 & 0{,}369 & 0{,}380\\
+\bottomrule
+\end{tabular}

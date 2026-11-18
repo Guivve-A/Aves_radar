@@ -17,7 +17,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from local_classifier import META_FILE, WEIGHTS_FILE, LocalSpeciesClassifier  # noqa: E402
+from local_classifier import META_FILE, VERIFIER_FILE, WEIGHTS_FILE, LocalSpeciesClassifier  # noqa: E402
 
 
 def _write_model(folder: Path, W: np.ndarray, b: np.ndarray, thresholds: list[float]) -> None:
@@ -73,6 +73,60 @@ class LocalClassifierTest(unittest.TestCase):
         # Con umbrales a la mitad entra tambien la especie 2 (0.88 >= 0.475).
         rows = clf.detections(x, 3.0, 6.0, "a.wav", threshold_scale=0.5)
         self.assertEqual({r["scientific"] for r in rows}, {"Genus species1", "Genus species2"})
+
+    def _write_verifier(self, species: list[str], cutoff: list[float], l2_input: bool = False) -> np.ndarray:
+        """Sonda de prueba: una direccion por especie, sesgo 0 (puntuacion 0,5 con el embedding nulo)."""
+        Wv = np.zeros((1024, len(species)), dtype=np.float32)
+        for k in range(len(species)):
+            Wv[k, k] = 4.0
+        meta = {"species": species, "l2_input": l2_input}
+        np.savez(self.folder / VERIFIER_FILE, W=Wv, b=np.zeros(len(species), np.float32), cutoff=np.array(cutoff, np.float32), meta=np.array(json.dumps(meta)))
+        return Wv
+
+    def test_without_verifier_rows_are_unchanged(self) -> None:
+        clf = LocalSpeciesClassifier.load(self.folder)
+        self.assertIsNone(clf.verifier)
+        self.assertIsNone(clf.verification(np.zeros(1024, dtype=np.float32)))
+        rows = clf.detections(np.zeros(1024, dtype=np.float32), 0.0, 3.0, "a.wav")
+        self.assertNotIn("verification", rows[0])
+        self.assertNotIn("verificador", clf.describe())
+
+    def test_verifier_flags_doubtful_detections_without_changing_the_set(self) -> None:
+        # El verificador lista las especies en otro orden y no conoce la especie 2.
+        self._write_verifier(["Genus species1", "Genus species0"], cutoff=[0.6, 0.6])
+        clf = LocalSpeciesClassifier.load(self.folder)
+        self.assertIn("con verificador local", clf.describe())
+        x = np.zeros(1024, dtype=np.float32)
+        plain = LocalSpeciesClassifier(clf.meta, clf.W, clf.b).detections(x, 3.0, 6.0, "a.wav", threshold_scale=0.5)
+        rows = clf.detections(x, 3.0, 6.0, "a.wav", threshold_scale=0.5)
+        self.assertEqual([(r["scientific"], r["confidence"]) for r in rows], [(r["scientific"], r["confidence"]) for r in plain])
+        by_name = {r["scientific"]: r for r in rows}
+        # especie 1: la sonda da 0,5 < 0,6 -> dudosa; especie 2: el verificador no la conoce -> nunca se marca
+        self.assertEqual(by_name["Genus species1"]["source"], "local_revisar")
+        self.assertAlmostEqual(by_name["Genus species1"]["verification"], 0.5, places=6)
+        self.assertEqual(by_name["Genus species2"]["source"], "local")
+        # Un embedding que apunta en la direccion de la especie 1 (fila 0 del verificador) supera el corte.
+        x[0] = 1.0
+        rows = clf.detections(x, 3.0, 6.0, "a.wav", threshold_scale=0.01)
+        by_name = {r["scientific"]: r for r in rows}
+        self.assertEqual(by_name["Genus species1"]["source"], "local")
+        self.assertGreater(by_name["Genus species1"]["verification"], 0.9)
+        self.assertEqual(by_name["Genus species0"]["source"], "local_revisar")
+
+    def test_verifier_normalizes_the_embedding_when_asked(self) -> None:
+        Wv = self._write_verifier(["Genus species0", "Genus species1", "Genus species2"], cutoff=[0.0, 0.0, 0.0], l2_input=True)
+        clf = LocalSpeciesClassifier.load(self.folder)
+        x = np.random.default_rng(2).normal(size=(5, 1024)).astype(np.float32) * 30.0
+        unit = x / np.linalg.norm(x, axis=1, keepdims=True)
+        np.testing.assert_allclose(clf.verification(x), 1.0 / (1.0 + np.exp(-(unit @ Wv))), rtol=1e-5, atol=1e-6)
+
+    def test_unusable_verifier_is_ignored(self) -> None:
+        self._write_verifier(["Otra especie"], cutoff=[0.5])                 # ninguna especie en comun
+        self.assertIsNone(LocalSpeciesClassifier.load(self.folder).verifier)
+        (self.folder / VERIFIER_FILE).write_bytes(b"no es un npz")             # archivo corrupto
+        clf = LocalSpeciesClassifier.load(self.folder)
+        self.assertIsNone(clf.verifier)
+        self.assertEqual(clf.detections(np.zeros(1024, dtype=np.float32), 0.0, 3.0, "a.wav")[0]["source"], "local")
 
     def test_rejects_incompatible_weights(self) -> None:
         _write_model(self.folder, self.W[:, :2], self.b[:2], [0.5, 0.5, 0.5])

@@ -41,7 +41,7 @@ import numpy as np
 import pandas as pd
 
 from ..embeddings import flat_sigmoid
-from .metrics import RankedPair
+from .metrics import RankedPair, weighted_ap
 
 GATE = 0.25
 SILENT = 0.05
@@ -50,6 +50,10 @@ E, G, U, R0, P, H, X = range(7)
 CAT_NAMES = {E: "E", G: "G", U: "U", R0: "R0", P: "P", H: "H", X: "X"}
 NONINFERIORITY = 0.01
 LEVELS = (0.0, 6.0, 12.0, 18.0, 24.0)
+# Correccion acotada: con |correccion| <= 0,9 logits, un par donde BirdNET calla (< 0,05, logit < -2,94) no puede
+# quedar por encima de uno validado (>= 0,25, logit >= -1,10), porque 0,9 < (2,944 - 1,099) / 2. La mAP limpia solo
+# puede cambiar por el orden entre validadas y rechazadas: el control de seguridad se cumple por construccion.
+BOUND = 0.9
 
 
 # --------------------------------------------------------------------------- #
@@ -133,6 +137,17 @@ def make_folds(data, cat: np.ndarray, n_splits: int = 5) -> np.ndarray:
     return fold_of[si]
 
 
+def load_folds(data, cat: np.ndarray, path) -> np.ndarray:
+    """Lee los pliegues guardados o los crea (son deterministas) si faltan o no corresponden a los datos."""
+    if path.exists():
+        folds = np.load(path)
+        if len(folds) == len(data.Y):
+            return folds
+    folds = make_folds(data, cat)
+    np.save(path, folds)
+    return folds
+
+
 # --------------------------------------------------------------------------- #
 # Bootstrap de sesiones dentro de cada grabadora
 # --------------------------------------------------------------------------- #
@@ -207,12 +222,45 @@ class APEvaluator:
         return float(np.nanmean(aps)), aps, (np.nanmean(reps, axis=1) if boot else None)
 
 
+def clean_map(data, cat: np.ndarray, scores: np.ndarray, rows: np.ndarray) -> float:
+    """mAP limpia ponderada sobre ``rows`` (``scores`` alineado con ``rows``); solo especies con algun positivo ahi."""
+    w = data.weight[rows].astype(np.float64)
+    aps = []
+    for k in range(cat.shape[1]):
+        c = cat[rows, k]
+        keep = np.isin(c, (P, H, R0, E))
+        y = (c[keep] == P).astype(np.float64)
+        if y.sum() > 0:
+            aps.append(weighted_ap(y, scores[keep, k].astype(np.float64), w[keep]))
+    return float(np.mean(aps)) if aps else float("nan")
+
+
+def clean_map_by_fold(data, cat: np.ndarray, scores: np.ndarray, folds: np.ndarray) -> float:
+    """mAP limpia calculada dentro de cada pliegue de prueba y promediada (analisis secundario).
+
+    La medida principal junta todas las ventanas: una falsa alarma cuenta aunque en su pliegue no haya ningun
+    positivo de la especie. Dentro de un pliegue esa especie no se evalua, y la falsa alarma no se ve.
+    """
+    out = []
+    for f in sorted(np.unique(folds)):
+        rows = np.flatnonzero(folds == f)
+        out.append(clean_map(data, cat, scores[rows], rows))
+    return float(np.mean(out))
+
+
 # --------------------------------------------------------------------------- #
 # SLI: indice de fuga de seleccion
 # --------------------------------------------------------------------------- #
 def _logit(p: np.ndarray) -> np.ndarray:
     p = np.clip(p.astype(np.float64), 1e-7, 1 - 1e-7)
     return np.log(p / (1 - p))
+
+
+def bounded(scores: np.ndarray, base_logit: np.ndarray, bound: float = BOUND) -> np.ndarray:
+    """sigma(logit de BirdNET + correccion recortada a +-bound). Conserva los NaN (mezclas que no son de prueba)."""
+    z0 = np.clip(np.asarray(base_logit, dtype=np.float64), -20.0, 20.0)
+    delta = np.clip(_logit(scores) - z0, -bound, bound)
+    return flat_sigmoid(z0 + delta).astype(np.float32)
 
 
 def selection_leak_index(data, cat: np.ndarray, scores: np.ndarray, bins: int = 5, min_each: int = 5) -> dict:
@@ -311,7 +359,7 @@ class AttenuationBenchmark:
     """Exhaustividad sobre cantos validados atenuados (mezclas ``test``), fuera de muestra.
 
     Punto de operacion principal ("presupuesto de alertas"): por especie, el umbral del modelo que
-    marca en el audio real la misma fraccion ponderada de ventanas que BirdNET con 0,25. No usa
+    marca en el audio real el mismo volumen ponderado de ventanas que BirdNET con 0,25. No usa
     etiquetas y da a todos los modelos la misma carga de revision. Secundario: 1 % de falsas alarmas
     sobre ventanas donde BirdNET calla para esa especie (E) y mezclas fondo + fondo.
     """
@@ -363,33 +411,46 @@ class AttenuationBenchmark:
         return out
 
     def recalls(self, prep: list[dict], mult: np.ndarray | None = None, mode: str = "presupuesto") -> np.ndarray:
-        """(especies, niveles). ``mult``: multiplicidad de bootstrap por fila del conjunto."""
+        """(especies, niveles). ``mult``: multiplicidad de bootstrap por fila del conjunto.
+
+        En el modo "presupuesto" el volumen de alertas del modelo iguala exactamente al de BirdNET. El volumen solo
+        puede cambiar de ventana en ventana, asi que se interpola entre el umbral mas bajo que no supera el presupuesto
+        y el siguiente (equivale a incluir al azar la ventana del borde con la probabilidad que cuadra el volumen).
+        Las ventanas con peso cero (sesiones que no entran en la replica) no pueden fijar el umbral.
+        """
         w = self.w if mult is None else self.w * mult
         res = np.full((len(prep), len(LEVELS)), np.nan)
         for i, p in enumerate(prep):
             if mode == "presupuesto":
                 wr = w[p["real_rows"]]
-                total = wr.sum()
-                budget = (wr * p["alert"]).sum()               # volumen de alertas de BirdNET a 0,25
-                if total <= 0 or budget <= 0:
+                budget = float((wr * p["alert"]).sum())            # volumen de alertas de BirdNET a 0,25
+                if wr.sum() <= 0 or budget <= 0:
                     continue
-                above = np.cumsum(wr[::-1])[::-1]               # peso con score >= el de cada posicion
-                pos = int(np.searchsorted(-above, -budget, side="left"))
-                thr = p["real_sorted"][min(pos, len(wr) - 1)]
-                strict = False                                  # alerta si score >= umbral
+                keep = wr > 0
+                ws, ss = wr[keep], p["real_sorted"][keep]
+                first = np.r_[True, ss[1:] != ss[:-1]]              # un nivel por score distinto: los empates entran juntos
+                levels = ss[first]
+                vol = np.cumsum(ws[::-1])[::-1][first]              # peso con score >= cada nivel (decreciente)
+                j = int(np.searchsorted(-vol, -budget * (1 + 1e-9), side="left"))    # primer nivel cuyo volumen cabe
+                t_hi, v_hi = (levels[j], float(vol[j])) if j < len(levels) else (np.inf, 0.0)
+                lam = 0.0
+                if j > 0:
+                    lam = (budget - v_hi) / (float(vol[j - 1]) - v_hi)
+                    lam = 0.0 if lam < 1e-9 else min(lam, 1.0)
+                cuts = [(t_hi, 1.0 - lam)] + ([(levels[j - 1], lam)] if lam > 0 else [])
+                strict = False                                      # alerta si score >= umbral
             else:
                 wn = w[p["null_owner"]]
                 cw = np.cumsum(wn)
                 if cw[-1] <= 0:
                     continue
-                thr = p["null_sorted"][min(int(np.searchsorted(cw, (1 - self.fa_rate) * cw[-1], side="left")), len(cw) - 1)]
+                cuts = [(p["null_sorted"][min(int(np.searchsorted(cw, (1 - self.fa_rate) * cw[-1], side="left")), len(cw) - 1)], 1.0)]
                 strict = True
-            for j, a in enumerate(LEVELS):
+            for jx, a in enumerate(LEVELS):
                 ps, owner = p["levels"][a]
                 pw = w[owner]
                 if pw.sum() > 0:
-                    hit = (ps > thr) if strict else (ps >= thr)
-                    res[i, j] = float((pw * hit).sum() / pw.sum())
+                    res[i, jx] = sum(share * float((pw * ((ps > thr) if strict else (ps >= thr))).sum() / pw.sum()) for thr, share in cuts)
         return res
 
     def evaluate(self, clean: np.ndarray, mixed: np.ndarray, mode: str = "presupuesto", boot: bool = True):

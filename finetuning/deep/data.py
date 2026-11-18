@@ -253,20 +253,6 @@ class _RowView:
         return self.base[self.rows[idx]]
 
 
-def group_folds(groups: np.ndarray, n_splits: int = 5, seed: int = config.RANDOM_SEED) -> np.ndarray:
-    """Pliegues agrupados por sesion, equilibrados en numero de ventanas (igual que ``finetuning.train``)."""
-    uniq, counts = np.unique(groups, return_counts=True)
-    rng = np.random.default_rng(seed)
-    order = np.lexsort((rng.random(len(uniq)), -counts))
-    fold_of: dict[str, int] = {}
-    load_ = np.zeros(n_splits)
-    for gi in order:
-        f = int(np.argmin(load_))
-        fold_of[uniq[gi]] = f
-        load_[f] += counts[gi]
-    return np.array([fold_of[g] for g in groups])
-
-
 def inner_split(groups: np.ndarray, frac: float = 0.15, seed: int = config.RANDOM_SEED) -> np.ndarray:
     """Marca como validacion interna un ``frac`` de las sesiones (parada temprana y seleccion)."""
     uniq = np.unique(groups)

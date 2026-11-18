@@ -1,0 +1,22 @@
+\begin{tabular}{lcccccc}
+\toprule
+Modelo & M2 [IC 95\,\%] & $\Delta$ frente a BirdNET [IC 95\,\%] & Retirados (de 71) & SLI & D1 & D2\\
+\midrule
+BirdNET V2.4 (sin ajuste) & 0{,}68 [0{,}56; 0{,}76] & -- & 11 & 0{,}50 & -- & --\\
+\addlinespace
+BirdNET propone, sonda local verifica & 0{,}80 [0{,}71; 0{,}89] & +0{,}12 [+0{,}05; +0{,}24] & 38 & 0{,}54 & s\'i & s\'i\\
+BirdNET propone, verificador de 5 variables ordena & 0{,}67 [0{,}58; 0{,}75] & $-$0{,}01 [$-$0{,}08; +0{,}10] & 22 & 0{,}50 & s\'i & no\\
+Prototipos coseno (app) & 0{,}77 [0{,}66; 0{,}88] & +0{,}09 [$-$0{,}04; +0{,}26] & 21 & 0{,}58 & no & no\\
+Sonda lineal, receta anterior & 0{,}80 [0{,}71; 0{,}89] & +0{,}12 [+0{,}05; +0{,}24] & 32 & 0{,}65 & no & s\'i\\
+Sonda lineal, receta nueva & 0{,}80 [0{,}71; 0{,}89] & +0{,}12 [+0{,}05; +0{,}24] & 38 & 0{,}53 & no & s\'i\\
+\addlinespace
+Correcci\'on lineal del embedding & 0{,}71 [0{,}59; 0{,}82] & +0{,}03 [$-$0{,}08; +0{,}17] & 23 & 0{,}55 & no & no\\
+Correcci\'on MLP residual del embedding & 0{,}69 [0{,}55; 0{,}81] & +0{,}00 [$-$0{,}09; +0{,}13] & 22 & 0{,}52 & no & no\\
+POST\_CONV afinada & 0{,}68 [0{,}57; 0{,}79] & $-$0{,}00 [$-$0{,}08; +0{,}12] & 20 & 0{,}56 & no & no\\
+Sub-bloques 4-3 y 4-4 + POST\_CONV & 0{,}68 [0{,}58; 0{,}78] & $-$0{,}01 [$-$0{,}09; +0{,}12] & 21 & 0{,}58 & no & no\\
+Correcci\'on lineal (acotada) & 0{,}73 [0{,}62; 0{,}80] & +0{,}05 [+0{,}02; +0{,}11] & 19 & 0{,}51 & s\'i & s\'i\\
+Correcci\'on MLP residual (acotada) & 0{,}70 [0{,}57; 0{,}79] & +0{,}02 [$-$0{,}02; +0{,}07] & 16 & 0{,}48 & s\'i & no\\
+POST\_CONV afinada (acotada) & 0{,}68 [0{,}57; 0{,}77] & +0{,}00 [$-$0{,}03; +0{,}04] & 12 & 0{,}48 & s\'i & no\\
+Sub-bloques 4-3 y 4-4 + POST\_CONV (acotada) & 0{,}69 [0{,}57; 0{,}76] & +0{,}00 [$-$0{,}02; +0{,}02] & 11 & 0{,}50 & s\'i & no\\
+\bottomrule
+\end{tabular}

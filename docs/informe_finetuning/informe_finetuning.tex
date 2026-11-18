@@ -24,6 +24,7 @@
 \graphicspath{{../../finetuning/results/figures/}}
 \newcommand{\tabdir}{../../finetuning/results/tables}
 \input{\tabdir/macros.tex}
+\input{\tabdir/macros_deep.tex}
 
 \captionsetup{font=small,labelfont=bf}
 \setlist{itemsep=2pt,topsep=4pt}
@@ -38,7 +39,7 @@
 \title{Ajuste fino de clasificadores bioacústicos para \textit{EcoAcoustic Sentinel}\\[4pt]
 \large Datos AudioMoth del proyecto CONDESAN: fundamentos, metodología y resultados}
 \author{EcoAcoustic Sentinel · Proyecto CONDESAN}
-\date{4 de noviembre de 2026}
+\date{18 de noviembre de 2026}
 
 \begin{document}
 \maketitle
@@ -61,6 +62,16 @@ Tercero, los umbrales por especie se calibraron con el método de \citet{wood202
 Estas mejoras se integraron en la aplicación como un \emph{clasificador local CONDESAN} opcional.
 El informe identifica además una sesión cuyos audios no corresponden a sus etiquetas y una revisión parcial
 de las especies más abundantes, y enumera la ayuda manual necesaria para un conjunto de prueba sin sesgo.
+
+\smallskip\noindent
+En una segunda fase (sección~\ref{sec:fase2}) el análisis se repitió con las 16\,629 grabaciones de la campaña, donde BirdNET obtiene una mAP de 0,850
+y la mejor sonda 0,601, y se afinaron las capas convolucionales superiores de BirdNET con una pérdida que tiene en cuenta qué detecciones se revisaron.
+Con un protocolo de evaluación y unas reglas de decisión fijados de antemano, el ajuste profundo mejora poco la detección de cantos atenuados
+(de \deepAttBirdnet{} a \deepAttDeep\,\% con el mismo volumen de alertas), no pasa el control de seguridad y no supera a una corrección sencilla del
+\emph{embedding}.
+La causa está en las etiquetas: todo lo que se sabe está por encima del umbral de BirdNET. Lo que sí se valida es un esquema de dos etapas, en el que
+BirdNET propone y una sonda local verifica. Con un corte que conserva el 95\,\% de las detecciones validadas, deja fuera \deepRejRemovedTwoStage{} de los
+\deepRejections{} rechazos expertos, frente a \deepRejRemovedBirdnet{} con la puntuación de BirdNET. Este verificador se integró en la aplicación como opción.
 \end{abstract}
 
 \tableofcontents
@@ -519,9 +530,9 @@ marque todas las especies audibles (sección~\ref{sec:ayuda}).
 \subsection{Limitaciones}
 \begin{itemize}
   \item Se analizó un subconjunto de 257 de las más de 4\,000 grabaciones con detecciones, elegido para cubrir especies, no al azar. Las métricas por especie con pocos
-        positivos (p.\,ej.\ \spp{Buteogallus meridionalis}, $n = 11$) tienen alta varianza.
+        positivos (p.\,ej.\ \spp{Buteogallus meridionalis}, $n = 11$) tienen alta varianza. La sección~\ref{sec:completo} repite el análisis con todas las grabaciones.
   \item La campaña cubre dos semanas de una estación en una región. La generalización a otras épocas (cambios de actividad vocal) no está evaluada.
-  \item Solo se afinó la última capa de BirdNET. Afinar capas convolucionales requeriría el modelo entrenable (no el TFLite) y más datos.
+  \item Solo se afinó la última capa de BirdNET. Las capas convolucionales se afinan en la segunda fase (sección~\ref{sec:fase2}), a partir del propio TFLite.
   \item Los negativos implícitos incluyen cantos reales no detectados por BirdNET, lo que penaliza de forma desconocida a todos los métodos distintos de BirdNET.
 \end{itemize}
 
@@ -561,18 +572,23 @@ en TablaFinal: \spp{Icterus mesomelas} en 42--45\,s y 51--54\,s, con confianzas 
 Para grabaciones del bosque seco de la campaña CONDESAN, se recomienda activar el clasificador local, que reemplaza la lista global por la local con umbrales
 calibrados. Las anomalías de BirdNET siguen disponibles para descubrir especies fuera de la lista. Los perfiles manuales con pocos clips (3--5) siguen siendo útiles
 para especies nuevas, pero con más de 10 ejemplos conviene entrenar una cabeza lineal (\code{python -m finetuning.train}).
+Si está instalado el verificador local (sección~\ref{sec:verificador}), conviene escuchar primero las detecciones marcadas como
+\emph{CONDESAN · revisar}: son las que menos se parecen a las validadas de su especie.
+
+\input{segunda_fase}
 
 % ============================================================================
 \section{Trabajo futuro}
 % ============================================================================
 \begin{enumerate}
-  \item Anotar exhaustivamente un conjunto de prueba aleatorio (p.\,ej.\ 300 ventanas de 3\,s estratificadas por grabadora y periodo) para medir sin sesgo
-        el rendimiento de BirdNET y de los modelos afinados.
-  \item Ejecutar el pipeline sobre todas las grabaciones (no solo el subconjunto) con la carpeta de Drive sincronizada localmente
-        (\code{ECO_DATA_ROOT}).
+  \item Anotar exhaustivamente el conjunto de prueba aleatorio ya preparado (300 ventanas de 3\,s estratificadas por grabadora y periodo) para medir sin sesgo
+        el rendimiento de BirdNET y de los modelos afinados. Es el paso que más limita hoy cualquier mejora.
+  \item Escuchar las ventanas donde el modelo afinado y BirdNET discrepan más (aprendizaje activo). La segunda fase deja la lista preparada: son las
+        ventanas donde una hora de anotación experta aporta más información.
+  \item Volver a entrenar los escalones convolucionales con esas anotaciones. Con negativos y positivos fiables fuera de las propuestas de BirdNET,
+        el control de seguridad deja de depender de BirdNET y la corrección puede ser menos conservadora.
   \item Sustituir los prototipos de la biblioteca de perfiles por una sonda lineal entrenada con los clips del usuario y negativos de fondo,
         con umbral calibrado por perfil.
-  \item Revisar activamente las ventanas donde BirdNET y la sonda discrepan más (aprendizaje activo), que es donde más informa la anotación experta.
   \item Incorporar la semana del año y la hora (amanecer/atardecer) como información previa por especie.
 \end{enumerate}
 
@@ -590,8 +606,12 @@ para especies nuevas, pero con más de 10 ejemplos conviene entrenar una cabeza 
         y (c) si se revisó una muestra limitada de \spp{Mimus longicaudatus}, \spp{Leptotila verreauxi} u otras especies abundantes.
   \item \textbf{Conjunto de prueba sin sesgo}: anotar todas las especies audibles en la muestra aleatoria de ventanas que genera el notebook de Colab
         (\code{anotacion.xlsx} y un clip de 5\,s por ventana; apéndice~\ref{app:repro}).
-  \item \textbf{Datos completos}: para usar todas las grabaciones, ejecutar el pipeline en un equipo con Google Drive para escritorio, o habilitar el acceso
-        de red a Google Drive en el entorno de ejecución.
+  \item \textbf{Celdas sin revisar}: en \deepCellsNever{} de las \deepCellsTotal{} combinaciones de sesión y especie con propuestas de BirdNET, ninguna propuesta figura en
+        TablaFinal (tabla~\ref{tab:deepnever}). Confirmar si nadie las revisó o si se descartaron en bloque. Si fueron descartes, son negativos fiables
+        que hoy no se pueden usar; si no se revisaron, revisar una muestra de cada una mediría directamente la precisión de BirdNET en esas especies.
+  \item \textbf{Ventanas en discrepancia}: escuchar la lista de ventanas donde el modelo afinado y BirdNET discrepan (se entrega aparte, no se publica).
+  \item \textbf{Verificador local}: el archivo \code{verificador_local.npz} contiene una sonda entrenada con las validaciones del proyecto. No se publica en
+        el repositorio. Confirmar si CONDESAN autoriza distribuirlo junto con la aplicación.
   \item \textbf{Publicación}: el repositorio es público. Solo contiene métricas agregadas, figuras y el modelo de umbrales (ni audio, ni TablaFinal, ni
         detecciones individuales, ni pesos de BirdNET). Confirmar que esto es aceptable para CONDESAN.
 \end{enumerate}
@@ -630,6 +650,24 @@ La evaluación usa las predicciones fuera de muestra de la validación cruzada, 
 puntúa, y la anotación nunca se usa para entrenar. Además de la AP de cada método, informa qué fracción de las presencias reales recoge
 TablaFinal: es la medida directa del sesgo de verificación.
 Artefactos versionados: \code{finetuning/results/} (métricas agregadas, figuras y tablas) y \code{local_models/condesan/condesan_local.json}.
-Artefactos no versionados: \code{data_cache/} (audio, TablaFinal, \emph{embeddings}, predicciones fuera de muestra).
+Artefactos no versionados: \code{data_cache/} (audio, TablaFinal, \emph{embeddings}, predicciones fuera de muestra) y
+\code{local_models/condesan/verificador_local.npz}.
+
+\paragraph{Segunda fase.} Requiere además PyTorch (CPU) y \code{ai-edge-litert}. Parte de una copia local de las grabaciones de la muestra y de TablaFinal.
+\begin{lstlisting}
+python -m finetuning.deep.extract                 # embeddings, logits y activaciones del bloque 3
+python -m finetuning.deep.data --consolidar       # conjunto de ventanas con pesos de muestreo
+python -m finetuning.deep.mixtures --plan         # plan reproducible de mezclas atenuadas
+python -m finetuning.deep.mixtures --extract      # BirdNET sobre cada mezcla
+python -m finetuning.deep.train_ra --cache        # activaciones a la entrada de cada escalon
+python -m finetuning.deep.train_ra --rungs lineal,mlp --ablations
+python -m finetuning.deep.train_ra --rungs post,b43
+python -m finetuning.deep.probes --export local_models/condesan   # sondas y verificador
+python -m finetuning.deep.evaluate_ra             # M1, SLI, M2, M3 y reglas D1-D3
+python -m finetuning.deep.report                  # tablas y figuras de la seccion
+\end{lstlisting}
+Todo corre en CPU: con cuatro núcleos, las cabezas tardan unos minutos y los escalones convolucionales menos de una hora. Las semillas están fijadas
+y los pliegues son deterministas. Los pesos afinados de BirdNET no se guardan ni se publican (licencia CC BY-NC-SA 4.0); el repositorio contiene el código
+que los reproduce.
 
 \end{document}
